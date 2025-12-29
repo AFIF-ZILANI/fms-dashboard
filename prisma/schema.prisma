@@ -30,14 +30,13 @@ model Batches {
   updated_at            DateTime               @updatedAt
   batchSuppliers        BatchSuppliers[]
   Environment           EnvironmentRecords[]
-  Expenses              Expenses[]
   Medications           Medications[]
-  Sales                 Sales[]
-  transactions          StockTransactions[]
   Vaccination           Vaccinations[]
   weightRecords         WeightRecords[]
   batchHouseAllocations BatchHouseAllocation[]
   events                HouseEvents[]
+  consumptions          Consumption[]
+  expenses              Expense[]
 
   @@index([farm_code, sector_code, product_code, batch_id])
 }
@@ -64,7 +63,7 @@ model HouseEvents {
   quantity      Float
   unit          Units
   occurred_at   DateTime
-  farm_date     DateTime @db.Date 
+  farm_date     DateTime  @db.Date
   created_by_id String
   batch         Batches?  @relation(fields: [batch_id], references: [id], onDelete: SetNull)
   house         Houses    @relation(fields: [house_id], references: [id], onDelete: Cascade)
@@ -72,19 +71,19 @@ model HouseEvents {
 }
 
 model WeightRecords {
-  id               String    @id @default(uuid())
+  id               String   @id @default(uuid())
   batch_id         String?
-  batch            Batches?  @relation(fields: [batch_id], references: [id], onDelete: SetNull)
+  batch            Batches? @relation(fields: [batch_id], references: [id], onDelete: SetNull)
   house_id         Int
-  house            Houses    @relation(fields: [house_id], references: [id], onDelete: Cascade)
-  average_wt_grams Decimal   @db.Decimal(10, 2)
+  house            Houses   @relation(fields: [house_id], references: [id], onDelete: Cascade)
+  average_wt_grams Decimal  @db.Decimal(10, 2)
   sample_size      Int
   date             DateTime
   farm_date        DateTime @db.Date
   measured_by_id   String
-  measured_by      Profiles  @relation(fields: [measured_by_id], references: [id], onDelete: Cascade)
-  created_at       DateTime  @default(now())
-  updated_at       DateTime  @updatedAt
+  measured_by      Profiles @relation(fields: [measured_by_id], references: [id], onDelete: Cascade)
+  created_at       DateTime @default(now())
+  updated_at       DateTime @updatedAt
 
   @@unique([batch_id, house_id, date])
 }
@@ -100,6 +99,8 @@ model Houses {
   weightRecords         WeightRecords[]
   batchHouseAllocations BatchHouseAllocation[]
   events                HouseEvents[]
+
+  consumptions Consumption[]
 }
 
 model BatchHouseAllocation {
@@ -169,22 +170,21 @@ model Customers {
   company    String?
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
-  Sales      Sales[]
+  Sale       Sale[]
 }
 
 model Suppliers {
-  id               String                     @id @default(uuid())
-  profile_id       String                     @unique
-  profile          Profiles                   @relation(fields: [profile_id], references: [id])
-  rating           Float?                     @default(0)
-  role             SupplierRoleNames
-  type             SupplierSupplyCategories[]
-  company          String?
-  created_at       DateTime                   @default(now())
-  updated_at       DateTime                   @updatedAt
-  StockTransaction StockTransactions[]
-  Items            Items[]
-  batchSuppliers   BatchSuppliers[]
+  id             String                     @id @default(uuid())
+  profile_id     String                     @unique
+  profile        Profiles                   @relation(fields: [profile_id], references: [id])
+  rating         Float?                     @default(0)
+  role           SupplierRoleNames
+  type           SupplierSupplyCategories[]
+  company        String?
+  created_at     DateTime                   @default(now())
+  updated_at     DateTime                   @updatedAt
+  Item           Item[]
+  batchSuppliers BatchSuppliers[]
 }
 
 model Doctors {
@@ -214,55 +214,83 @@ model Pharmacists {
   profile       Profiles @relation(fields: [profile_id], references: [id])
 }
 
-model StockTransactions {
-  id               String           @id @default(uuid())
-  item_id          String
-  batch_id         String
-  quantity         Int
-  transaction_type TransactionTypes
-  date             DateTime         @default(now())
-  unit_price       Float
-  total_price      Float
-  supplier_id      String?
-  remarks          String?
-  created_at       DateTime         @default(now())
-  updated_at       DateTime         @updatedAt
-  batch            Batches          @relation(fields: [batch_id], references: [id])
-  item             Items            @relation(fields: [item_id], references: [id])
-  supplier         Suppliers?       @relation(fields: [supplier_id], references: [id])
+model StockLedger {
+  id         String         @id @default(uuid())
+  itemId     String
+  direction  StockDirection // IN | OUT | ADJUST
+  quantity   Float
+  unitCost   Float? // purchase or avg cost
+  reason     StockReason // PURCHASE, CONSUMPTION, SALE, WASTAGE
+  occurredAt DateTime
+  ref_type   RefType // CONSUMPTION, SALE, PURCHASE
+  ref_id     String? // points to domain record
+  item       Item           @relation(fields: [itemId], references: [id])
 
-  @@index([item_id, batch_id])
+  @@index([itemId, occurredAt])
 }
 
-model Items {
-  id             String              @id @default(uuid())
-  name           String
-  description    String?
-  category       ResourceCategories
-  unit_name      Units
-  unit_price     Float
-  stock_quantity Int                 @default(0)
-  reorder_level  Int                 @default(0)
-  is_consumable  Boolean             @default(true)
-  supplier_id    String?
-  created_at     DateTime            @default(now())
-  updated_at     DateTime            @updatedAt
-  transactions   StockTransactions[]
-  supplier       Suppliers?          @relation(fields: [supplier_id], references: [id])
-  sales_items    SalesItems[]
+model Item {
+  id            String             @id @default(uuid())
+  name          String
+  category      ResourceCategories
+  unit          Units
+  meta_data     Json
+  createdAt     DateTime           @default(now())
+  ledgerEntries StockLedger[]
+  suppliers     Suppliers[]
+  consumptions  Consumption[]
+  saleItems     SaleItem[]
 }
 
-model SalesItems {
-  id         String @id @default(uuid())
-  sale_id    String
-  item_id    String
-  quantity   Int
-  unit_price Float
-  subtotal   Float
-  sale       Sales  @relation(fields: [sale_id], references: [id])
-  item       Items  @relation(fields: [item_id], references: [id])
+model Consumption {
+  id       String             @id @default(uuid())
+  batchId  String
+  houseId  Int
+  itemId   String
+  quantity Float
+  purpose  ConsumptionPurpose
+  date     DateTime
 
-  @@index([sale_id, item_id])
+  batch Batches @relation(fields: [batchId], references: [id])
+  house Houses  @relation(fields: [houseId], references: [id])
+  item  Item    @relation(fields: [itemId], references: [id])
+
+  @@index([batchId, houseId, date])
+}
+
+model Sale {
+  id         String   @id @default(uuid())
+  customerId String?
+  date       DateTime
+  total      Float
+
+  items SaleItem[]
+
+  customers Customers[]
+}
+
+model SaleItem {
+  id        String @id @default(uuid())
+  saleId    String
+  itemId    String
+  quantity  Float
+  unitPrice Float
+
+  sale Sale @relation(fields: [saleId], references: [id])
+  item Item @relation(fields: [itemId], references: [id])
+
+  @@index([saleId, itemId])
+}
+
+model Expense {
+  id       String          @id @default(uuid())
+  batchId  String?
+  category ExpenseCategory // LABOR, ELECTRICITY, TRANSPORT
+  amount   Float
+  date     DateTime
+  remarks  String?
+
+  batch Batches? @relation(fields: [batchId], references: [id])
 }
 
 model Medications {
@@ -303,34 +331,6 @@ model Vaccinations {
   administered    Admins    @relation(fields: [administered_by], references: [id])
   batch           Batches   @relation(fields: [batch_id], references: [id])
   doctor          Doctors?  @relation(fields: [doctor_id], references: [id])
-}
-
-model Sales {
-  id             String       @id @default(uuid())
-  batch_id       String
-  date           DateTime     @default(now())
-  customer_id    String?
-  delay_for_sale Int?
-  total_price    Float // total from items
-  created_at     DateTime     @default(now())
-  updated_at     DateTime     @updatedAt
-  batch          Batches?     @relation(fields: [batch_id], references: [id])
-  customer       Customers?   @relation(fields: [customer_id], references: [id])
-  items          SalesItems[]
-}
-
-model Expenses {
-  id          String             @id @default(uuid())
-  batch_id    String?
-  date        DateTime           @default(now())
-  amount      Float
-  unit        Units
-  category    ResourceCategories
-  description String?
-  created_at  DateTime           @default(now())
-  updated_at  DateTime           @updatedAt
-  remarks     String?
-  batch       Batches?           @relation(fields: [batch_id], references: [id])
 }
 
 model EnvironmentRecords {
@@ -514,4 +514,40 @@ enum EventType {
   FEED
   WATER
   MORTALITY
+}
+
+enum StockDirection {
+  IN
+  OUT
+  ADJUST
+}
+
+enum StockReason {
+  PURCHASE
+  CONSUMPTION
+  SALE
+  WASTAGE
+  EXPIRED
+  RETURN
+}
+
+enum ExpenseCategory {
+  LABOR
+  ELECTRICITY
+  TRANSPORT
+  INTERNET
+}
+
+enum ConsumptionPurpose {
+  FEED // daily feeding
+  MEDICINE // therapeutic treatment
+  VACCINE // scheduled vaccination
+  SUPPLEMENT // vitamins, minerals, probiotics
+  LITTER // husk, sawdust, bedding, insulation
+}
+
+enum RefType {
+  CONSUMPTION
+  SALE
+  PURCHASE
 }
