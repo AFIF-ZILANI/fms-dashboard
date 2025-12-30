@@ -215,47 +215,51 @@ model Pharmacists {
 }
 
 model StockLedger {
-  id         String         @id @default(uuid())
-  itemId     String
-  direction  StockDirection // IN | OUT | ADJUST
-  quantity   Float
-  unitCost   Float? // purchase or avg cost
-  reason     StockReason // PURCHASE, CONSUMPTION, SALE, WASTAGE
-  occurredAt DateTime
-  ref_type   RefType // CONSUMPTION, SALE, PURCHASE
-  ref_id     String? // points to domain record
-  item       Item           @relation(fields: [itemId], references: [id])
+  id              String         @id @default(uuid())
+  item_id         String
+  direction       StockDirection // IN | OUT | ADJUST
+  idempotency_key String
+  quantity        Float
+  unit_cost       Float? // purchase or avg cost
+  reason          StockReason // PURCHASE, CONSUMPTION, SALE, WASTAGE
+  occurred_at     DateTime
+  ref_type        RefType // CONSUMPTION, SALE, PURCHASE
+  ref_id          String? // points to domain record
+  item            Item           @relation(fields: [item_id], references: [id])
 
-  @@index([itemId, occurredAt])
+  @@unique([idempotency_key])
+  @@unique([ref_type, ref_id, reason])
+  @@index([item_id, occurred_at])
 }
 
 model Item {
-  id            String             @id @default(uuid())
-  name          String
-  category      ResourceCategories
-  unit          Units
-  meta_data     Json
-  createdAt     DateTime           @default(now())
-  ledgerEntries StockLedger[]
-  suppliers     Suppliers[]
-  consumptions  Consumption[]
-  saleItems     SaleItem[]
+  id             String             @id @default(uuid())
+  name           String
+  category       ResourceCategories
+  unit           Units
+  meta_data      Json
+  updated_at     DateTime           @updatedAt
+  created_at     DateTime           @default(now())
+  ledger_entries StockLedger[]
+  suppliers      Suppliers[]
+  consumptions   Consumption[]
+  saleItems      SaleItem[]
 }
 
 model Consumption {
   id       String             @id @default(uuid())
-  batchId  String
-  houseId  Int
-  itemId   String
+  batch_id String
+  house_id Int
+  item_id  String
   quantity Float
   purpose  ConsumptionPurpose
   date     DateTime
 
-  batch Batches @relation(fields: [batchId], references: [id])
-  house Houses  @relation(fields: [houseId], references: [id])
-  item  Item    @relation(fields: [itemId], references: [id])
+  batch Batches @relation(fields: [batch_id], references: [id])
+  house Houses  @relation(fields: [house_id], references: [id])
+  item  Item    @relation(fields: [item_id], references: [id])
 
-  @@index([batchId, houseId, date])
+  @@index([batch_id, house_id, date])
 }
 
 model Sale {
