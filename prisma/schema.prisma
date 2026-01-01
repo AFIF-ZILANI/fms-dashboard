@@ -37,6 +37,7 @@ model Batches {
   events                HouseEvents[]
   consumptions          Consumption[]
   expenses              Expense[]
+  birdSales             BirdSale[]
 
   @@index([farm_code, sector_code, product_code, batch_id])
 }
@@ -138,6 +139,8 @@ model Profiles {
   doctors       Doctors?
   houseEvents   HouseEvents[]
   weightRecords WeightRecords[]
+
+  payments Payment[]
 }
 
 model Employees {
@@ -171,6 +174,8 @@ model Customers {
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
   Sale       Sale[]
+
+  birdSales BirdSale[]
 }
 
 model Suppliers {
@@ -185,6 +190,8 @@ model Suppliers {
   updated_at     DateTime                   @updatedAt
   Item           Item[]
   batchSuppliers BatchSuppliers[]
+
+  purchases Purchase[]
 }
 
 model Doctors {
@@ -226,10 +233,12 @@ model StockLedger {
   ref_type        RefType // CONSUMPTION, SALE, PURCHASE
   ref_id          String? // points to domain record
   item            Item           @relation(fields: [item_id], references: [id])
+  purchases       Purchase[]
 
   @@unique([idempotency_key])
   @@unique([ref_type, ref_id, reason])
   @@index([item_id, occurred_at])
+  @@index([ref_type, ref_id])
 }
 
 model Item {
@@ -244,6 +253,8 @@ model Item {
   suppliers      Suppliers[]
   consumptions   Consumption[]
   saleItems      SaleItem[]
+
+  purchaseItems PurchaseItem[]
 }
 
 model Consumption {
@@ -263,38 +274,158 @@ model Consumption {
 }
 
 model Sale {
-  id         String   @id @default(uuid())
+  id         String     @id @default(uuid())
   customerId String?
-  date       DateTime
-  total      Float
+  customer   Customers? @relation(fields: [customerId], references: [id])
+
+  sale_date DateTime
+  total     Decimal
 
   items SaleItem[]
 
-  customers Customers[]
+  createdAt DateTime @default(now())
+}
+
+model BirdSale {
+  id String @id @default(uuid())
+
+  batch_id String
+  batch    Batches @relation(fields: [batch_id], references: [id])
+
+  customer_id String?
+  customer    Customers? @relation(fields: [customer_id], references: [id])
+
+  sale_date DateTime
+
+  grade               BirdGrade // A, B, LOW, CULL
+  male_count          Int?
+  dholta_in_g         Decimal   @db.Decimal(10, 2)
+  total_katha         Int
+  avg_wt_per_katha_kg Decimal?  @db.Decimal(10, 2)
+  female_count        Int?
+  birds_count         Int
+  avg_weight_g        Decimal?  @db.Decimal(10, 2) // optional
+  total_weight        Decimal   @db.Decimal(10, 2)
+  net_weight          Decimal   @db.Decimal(10, 2)
+  price_per_kg        Decimal   @db.Decimal(10, 2)
+  total_amount        Decimal   @db.Decimal(10, 2)
+
+  created_at DateTime @default(now())
 }
 
 model SaleItem {
-  id        String @id @default(uuid())
-  saleId    String
-  itemId    String
-  quantity  Float
-  unitPrice Float
+  id String @id @default(uuid())
 
-  sale Sale @relation(fields: [saleId], references: [id])
-  item Item @relation(fields: [itemId], references: [id])
+  sale_id String
+  sale    Sale   @relation(fields: [sale_id], references: [id])
 
-  @@index([saleId, itemId])
+  item_id String
+  item    Item   @relation(fields: [item_id], references: [id])
+
+  quantity    Decimal
+  unit        Units
+  unit_price  Decimal @db.Decimal(10, 2)
+  total_price Decimal @db.Decimal(10, 2)
+
+  @@index([sale_id])
+  @@index([item_id])
 }
 
 model Expense {
   id       String          @id @default(uuid())
-  batchId  String?
+  batch_id String?
   category ExpenseCategory // LABOR, ELECTRICITY, TRANSPORT
   amount   Float
   date     DateTime
   remarks  String?
 
-  batch Batches? @relation(fields: [batchId], references: [id])
+  batch Batches? @relation(fields: [batch_id], references: [id])
+}
+
+model Purchase {
+  id          String    @id @default(uuid())
+  supplier_id String
+  supplier    Suppliers @relation(fields: [supplier_id], references: [id])
+
+  invoice_no    String?
+  purchase_date DateTime
+  payment_type  PaymentType
+  total_amount  Decimal     @db.Decimal(10, 2)
+  paid_amount   Decimal     @db.Decimal(10, 2)
+  due_amount    Decimal     @db.Decimal(10, 2)
+
+  items   PurchaseItem[]
+  ledgers StockLedger[]
+
+  created_at DateTime @default(now())
+}
+
+model PurchaseItem {
+  id String @id @default(uuid())
+
+  purchase_id String
+  purchase    Purchase @relation(fields: [purchase_id], references: [id])
+
+  item_id String
+  item    Item   @relation(fields: [item_id], references: [id])
+
+  quantity    Int
+  unit        Units
+  unit_price  Decimal  @db.Decimal(10, 2)
+  total_price Decimal  @db.Decimal(10, 2)
+  created_at  DateTime @default(now())
+}
+
+model Payment {
+  id String @id @default(uuid())
+
+  amount       Decimal  @db.Decimal(10, 2)
+  payment_date DateTime
+
+  direction PaymentType // INCOMING / OUTGOING
+  ref_type  PaymentRefType // SALE / BIRD_SALE / PURCHASE / EXPENSE
+  ref_id    String
+
+  // FROM where money moved
+  from_instrument_id String
+  from_instrument    PaymentInstrument @relation("PaymentFrom", fields: [from_instrument_id], references: [id])
+
+  // TO where money moved
+  to_instrument_id String
+  to_instrument    PaymentInstrument @relation("PaymentTo", fields: [to_instrument_id], references: [id])
+
+  transaction_ref String? // bank slip, bKash Txn ID (PER PAYMENT)
+
+  handled_by_id String? // cashier / staff
+  handled_by    Profiles? @relation(fields: [handled_by_id], references: [id])
+
+  note String?
+
+  created_at DateTime @default(now())
+
+  @@index([ref_type, ref_id])
+}
+
+model PaymentInstrument {
+  id String @id @default(uuid())
+
+  owner_type InstrumentOwner // FARM / SUPPLIER / CUSTOMER
+  owner_id   String?
+
+  type  PaymentMethod // CASH / BANK / MOBILE
+  label String // "Farm bKash", "Rahman Bank A/C"
+
+  bank_name  String?
+  account_no String?
+  mobile_no  String?
+  mfs_type   MfsType?
+
+  is_active Boolean @default(true)
+
+  created_at DateTime @default(now())
+
+  payments_from Payment[] @relation("PaymentFrom")
+  payments_to   Payment[] @relation("PaymentTo")
 }
 
 model Medications {
@@ -414,6 +545,10 @@ enum Units {
   BAG
   BOX
   UNIT
+  SACHETS
+  BOTTLE
+  MON
+  TON
   OTHER
 }
 
@@ -554,4 +689,49 @@ enum RefType {
   CONSUMPTION
   SALE
   PURCHASE
+}
+
+enum PaymentStatus {
+  PAID
+  PENDING
+  CANCELED
+  UNPAID
+}
+
+enum BirdGrade {
+  HIGH
+  LOW
+  CULL
+}
+
+enum PaymentMethod {
+  CASH
+  BANK_TRANSFER
+  MFS
+}
+
+enum MfsType {
+  BKASH
+  NAGAD
+  ROCKET
+}
+
+enum PaymentType {
+  INCOMING
+  OUTGOING
+}
+
+enum PaymentRefType {
+  SALE
+  BIRD_SALE
+  PURCHASE
+  EXPENSE
+}
+
+enum InstrumentOwner {
+  OWNER
+  SUPPLIER
+  CUSTOMER
+  TRANSPORTER
+  OTHER
 }
