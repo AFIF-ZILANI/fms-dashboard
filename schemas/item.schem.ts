@@ -7,22 +7,7 @@ import {
     Units,
 } from "@/app/generated/prisma/enums";
 import { z } from "zod";
-const decimalNumber = z.preprocess(
-    (val) => {
-        if (typeof val === "string") {
-            const parsed = Number(val);
-            return Number.isFinite(parsed) ? parsed : undefined;
-        }
-        return val;
-    },
-    z
-        .number({ error: "Value is required" })
-        .positive("Must be greater than 0")
-        .refine(
-            (v) => Number(v.toFixed(2)) === v,
-            "Maximum 2 decimal places allowed"
-        )
-);
+import { decimalNumber } from "./helper";
 
 export const addStockItemSchema = z.object({
     name: z.string().min(1),
@@ -31,7 +16,7 @@ export const addStockItemSchema = z.object({
 
     isMetaDataAvailable: z.boolean(),
 
-    metaData: z.record(z.string(), z.any()).optional(), // medicine/feed/litter future-proof
+    metaData: z.record(z.string(), z.string()).optional(), // medicine/feed/litter future-proof
 });
 
 export const addStockLedgerSchema = z.object({

@@ -574,6 +574,8 @@ enum BirdBreeds {
 enum ResourceCategories {
   FEED
   MEDICINE
+  SUPPLEMENT
+  BIOSECURITY
   CHICKS
   HUSK
   EQUIPMENT
@@ -696,6 +698,8 @@ enum PaymentStatus {
   PENDING
   CANCELED
   UNPAID
+  PARTIAL
+  DUE
 }
 
 enum BirdGrade {
@@ -729,9 +733,10 @@ enum PaymentRefType {
 }
 
 enum InstrumentOwner {
-  OWNER
   SUPPLIER
   CUSTOMER
   TRANSPORTER
-  OTHER
+  ADMIN
+  EMPLOYEE
+  DOCTOR
 }
