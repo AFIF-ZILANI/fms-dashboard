@@ -1,3 +1,5 @@
+import { ResourceCategories } from "@/app/generated/prisma/enums";
+
 export type PurchaseLine = {
     itemId: string;
     name: string;
@@ -9,7 +11,9 @@ export type PurchaseLine = {
 export type Item = {
     id: string;
     name: string;
+    category: ResourceCategories;
     unit: string;
+    company: string;
 };
 
 export type PurchaseItem = {
