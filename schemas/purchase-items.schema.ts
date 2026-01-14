@@ -1,40 +1,30 @@
 import { PaymentStatus, Units } from "@/app/generated/prisma/enums";
 import { z } from "zod";
-import { decimalNumber } from "./helper";
+import { decimalNumber, decimalOptional } from "./helper";
+import { paymentSchema } from "./payment.schem";
 
-const purchaseItemSchema = z.object({
+export const itemSchema = z.object({
     itemId: z.string().uuid(),
-    quantity: z.number().positive(),
+    quantity: decimalNumber, // Decimal(10,2)
     unit: z.nativeEnum(Units),
     unitPrice: decimalNumber, // Decimal(10,2)
 });
 
-const paymentSchema = z.object({
-    paidAmount: decimalNumber,
-
-    fromInstrumentId: z.string().uuid(),
-    toInstrumentId: z.string().uuid(),
-
-    transactionRef: z.string().optional(),
-    handledById: z.string().uuid().optional(),
-    paymentDate: z.date().optional(),
-});
-
-export const purchaseSchema = z
+export const purchaseItemSchema = z
     .object({
         // 1️⃣ Header
         supplierId: z.string().uuid(),
-        purchaseDate: z.date(),
+        purchaseDate: z.coerce.date(),
 
         invoiceNo: z.string().optional(),
         note: z.string().optional(),
 
         // 2️⃣ Items (must exist)
-        items: z.array(purchaseItemSchema).min(1),
+        items: z.array(itemSchema).min(1),
 
         // 3️⃣ Summary adjustments
-        discount: decimalNumber.optional().default(0),
-        transportCost: decimalNumber.optional().default(0),
+        discount: decimalOptional.default(0),
+        transportCost: decimalOptional.default(0),
 
         // 4️⃣ Payment intent
         paymentStatus: z.nativeEnum(PaymentStatus),
@@ -42,21 +32,53 @@ export const purchaseSchema = z
         payment: paymentSchema.optional(),
     })
     .superRefine((data, ctx) => {
-        // If PAID or PARTIAL → payment must exist
-        if (data.paymentStatus !== "DUE" && !data.payment) {
-            ctx.addIssue({
-                path: ["payment"],
-                message: "Payment details required for PAID or PARTIAL status",
-                code: z.ZodIssueCode.custom,
-            });
+        const subtotal = data.items.reduce<number>(
+            (s, r) => s + (Number(r.quantity) ?? 0) * (r.unitPrice as number),
+            0
+        );
+        const grandTotal =
+            subtotal - (data.discount * subtotal) / 100 + data.transportCost;
+
+        const paid = data.payment?.paidAmount ?? 0;
+
+        if (data.paymentStatus === "PAID") {
+            if (!data.payment) {
+                ctx.addIssue({
+                    path: ["payment"],
+                    message: "Payment is required when status is PAID",
+                    code: z.ZodIssueCode.custom,
+                });
+            } else if (paid !== grandTotal) {
+                ctx.addIssue({
+                    path: ["payment", "paidAmount"],
+                    message:
+                        "Paid amount must equal grand total when status is PAID",
+                    code: z.ZodIssueCode.custom,
+                });
+            }
         }
 
-        // If DUE → payment must NOT exist
-        if (data.paymentStatus === "DUE" && data.payment) {
+        if (data.paymentStatus === "PARTIAL") {
+            if (!data.payment || paid <= 0 || paid >= grandTotal) {
+                ctx.addIssue({
+                    path: ["payment", "paidAmount"],
+                    message:
+                        "Paid amount must be greater than 0 and less than total for PARTIAL",
+                    code: z.ZodIssueCode.custom,
+                });
+            }
+        }
+
+        if (data.paymentStatus === "UNPAID" && data.payment) {
             ctx.addIssue({
                 path: ["payment"],
-                message: "Payment should not be provided when status is DUE",
+                message: "Payment must not exist when status is UNPAID",
                 code: z.ZodIssueCode.custom,
             });
         }
     });
+
+export type PurchaseItemFormInput = z.input<typeof purchaseItemSchema>;
+export type PurchaseItemFormOutput = z.output<typeof purchaseItemSchema>;
+export type PurchaseItemInput = z.input<typeof itemSchema>;
+export type PurchaseItemOutput = z.output<typeof itemSchema>;

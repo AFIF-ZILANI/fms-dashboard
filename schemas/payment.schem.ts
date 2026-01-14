@@ -1,13 +1,10 @@
-import {
-    InstrumentOwner,
-    MfsType,
-    PaymentMethod,
-} from "@/app/generated/prisma/enums";
+import { UserRole, MfsType, PaymentMethod } from "@/app/generated/prisma/enums";
 import { z } from "zod";
+import { decimalNumber } from "./helper";
 
 export const paymentInstrumentSchema = z
     .object({
-        ownerType: z.nativeEnum(InstrumentOwner),
+        ownerType: z.nativeEnum(UserRole),
 
         ownerId: z
             .string()
@@ -89,3 +86,15 @@ export const paymentInstrumentSchema = z
             }
         }
     });
+
+export const paymentSchema = z.object({
+    paidAmount: decimalNumber,
+
+    fromInstrumentId: z.string().uuid(),
+    toInstrumentId: z.string().uuid(),
+    method: z.nativeEnum(PaymentMethod),
+    transactionRef: z.string().optional(),
+    handledById: z.string().uuid().optional(),
+    paymentDate: z.coerce.date(),
+    note: z.string().optional(),
+});

@@ -2,7 +2,6 @@ import {
     ConsumptionPurpose,
     RefType,
     ResourceCategories,
-    StockDirection,
     StockReason,
     Units,
 } from "@/app/generated/prisma/enums";
@@ -21,7 +20,6 @@ export const addStockItemSchema = z.object({
 
 export const addStockLedgerSchema = z.object({
     itemId: z.string().uuid(),
-    direction: z.nativeEnum(StockDirection),
     quantity: decimalNumber,
 
     unitCost: decimalNumber.optional(),

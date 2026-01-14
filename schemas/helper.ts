@@ -16,3 +16,20 @@ export const decimalNumber = z.preprocess(
             "Maximum 2 decimal places allowed"
         )
 );
+
+export const decimalOptional = z.preprocess(
+    (val) => {
+        if (typeof val === "string") {
+            const parsed = Number(val);
+            return Number.isFinite(parsed) ? parsed : undefined;
+        }
+        return val;
+    },
+    z
+        .number({ error: "Value is required" })
+        .refine(
+            (v) => Number(v.toFixed(2)) === v,
+            "Maximum 2 decimal places allowed"
+        )
+        .optional()
+);
