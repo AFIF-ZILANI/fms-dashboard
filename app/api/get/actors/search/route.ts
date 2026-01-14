@@ -42,13 +42,18 @@ export async function GET(req: NextRequest) {
                     select: {
                         id: true,
                         name: true,
+                        suppliers: {
+                            select: {
+                                id: true
+                            }
+                        }
                     },
                 });
 
                 console.log(res)
 
                 results = res.map((r) => ({
-                    id: r.id,
+                    id: r.suppliers?.id!!,
                     name: r.name,
                     type: "SUPPLIER",
                 }));
@@ -156,7 +161,7 @@ export async function GET(req: NextRequest) {
                 });
         }
 
-        console.log(results);
+        // console.log(results);
 
         return response({
             message: "Success",
