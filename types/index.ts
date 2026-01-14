@@ -1,4 +1,4 @@
-import { BirdBreeds, InstrumentOwner } from "@/app/generated/prisma/enums";
+import { BirdBreeds, UserRole } from "@/app/generated/prisma/enums";
 import { Phase } from "@/config/bird-man.config";
 
 export interface ProfileGraphProps {
@@ -130,5 +130,5 @@ export type SupplierOption = {
 export type ActorSearchItem = {
     id: string;
     name: string;
-    type: InstrumentOwner;
+    type: UserRole;
 };
