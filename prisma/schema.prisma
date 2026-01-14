@@ -135,7 +135,6 @@ model Profiles {
   admins        Admins?
   customers     Customers?
   suppliers     Suppliers?
-  pharmacists   Pharmacists?
   doctors       Doctors?
   houseEvents   HouseEvents[]
   weightRecords WeightRecords[]
@@ -210,33 +209,20 @@ model Doctors {
   Vaccination Vaccinations[]
 }
 
-model Pharmacists {
-  id            String   @id @default(uuid())
-  rating        Float?   @default(0)
-  institution   String?
-  is_registered Boolean  @default(false)
-  created_at    DateTime @default(now())
-  updated_at    DateTime @updatedAt
-  profile_id    String   @unique
-  profile       Profiles @relation(fields: [profile_id], references: [id])
-}
-
 model StockLedger {
-  id              String         @id @default(uuid())
+  id              String      @id @default(uuid())
   item_id         String
-  direction       StockDirection // IN | OUT | ADJUST
   idempotency_key String
-  quantity        Float
-  unit_cost       Float? // purchase or avg cost
+  quantity        Decimal     @db.Decimal(10, 3)
+  unit_cost       Decimal?    @db.Decimal(10, 2)
   reason          StockReason // PURCHASE, CONSUMPTION, SALE, WASTAGE
   occurred_at     DateTime
   ref_type        RefType // CONSUMPTION, SALE, PURCHASE
-  ref_id          String? // points to domain record
-  item            Item           @relation(fields: [item_id], references: [id])
-  purchases       Purchase[]
+  ref_id          String // points to domain record
+  item            Item        @relation(fields: [item_id], references: [id])
 
   @@unique([idempotency_key])
-  @@unique([ref_type, ref_id, reason])
+  @@unique([ref_type, ref_id, item_id, reason])
   @@index([item_id, occurred_at])
   @@index([ref_type, ref_id])
 }
@@ -349,13 +335,11 @@ model Purchase {
 
   invoice_no    String?
   purchase_date DateTime
-  payment_type  PaymentType
-  total_amount  Decimal     @db.Decimal(10, 2)
-  paid_amount   Decimal     @db.Decimal(10, 2)
-  due_amount    Decimal     @db.Decimal(10, 2)
+  total_amount  Decimal  @db.Decimal(10, 2)
+  paid_amount   Decimal  @db.Decimal(10, 2)
+  due_amount    Decimal  @db.Decimal(10, 2)
 
-  items   PurchaseItem[]
-  ledgers StockLedger[]
+  items PurchaseItem[]
 
   created_at DateTime @default(now())
 }
@@ -409,8 +393,8 @@ model Payment {
 model PaymentInstrument {
   id String @id @default(uuid())
 
-  owner_type InstrumentOwner // FARM / SUPPLIER / CUSTOMER
-  owner_id   String?
+  owner_type UserRole // FARM / SUPPLIER / CUSTOMER
+  owner_id   String
 
   type  PaymentMethod // CASH / BANK / MOBILE
   label String // "Farm bKash", "Rahman Bank A/C"
@@ -647,7 +631,6 @@ enum UserRole {
   EMPLOYEE
   CUSTOMER
   SUPPLIER
-  PHARMACIST
   DOCTOR
 }
 
@@ -655,12 +638,6 @@ enum EventType {
   FEED
   WATER
   MORTALITY
-}
-
-enum StockDirection {
-  IN
-  OUT
-  ADJUST
 }
 
 enum StockReason {
@@ -695,11 +672,8 @@ enum RefType {
 
 enum PaymentStatus {
   PAID
-  PENDING
-  CANCELED
   UNPAID
   PARTIAL
-  DUE
 }
 
 enum BirdGrade {
@@ -730,13 +704,4 @@ enum PaymentRefType {
   BIRD_SALE
   PURCHASE
   EXPENSE
-}
-
-enum InstrumentOwner {
-  SUPPLIER
-  CUSTOMER
-  TRANSPORTER
-  ADMIN
-  EMPLOYEE
-  DOCTOR
 }
