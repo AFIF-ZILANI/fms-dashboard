@@ -22,7 +22,7 @@ import {
     FormMessage,
 } from "@/components/ui/form";
 
-import { addStockItemSchema, AddStockItemSchema } from "@/schemas/item.schem";
+import { addStockItemSchema, AddStockItemSchema } from "@/schemas/item.schema";
 import { Spinner } from "@/components/ui/spinner";
 import { useEffect, useState } from "react";
 import { usePostData } from "@/lib/api-request";
