@@ -9,6 +9,10 @@ import {
     House,
     Layers,
     Truck,
+    ShoppingBag,
+    Warehouse,
+    Wallet
+
 } from "lucide-react";
 
 import { NavMain } from "@/components/navigation/nav-main";
@@ -105,23 +109,37 @@ const data = {
         {
             title: "Inventory",
             url: "/inventory",
-            icon: FileText,
+            icon: Warehouse,
+            items: [
+                {
+                    title: "New Item",
+                    url: "/inventory/new/item",
+                },
+                {
+                    title: "New Medicine",
+                    url: "/inventory/new/medicine",
+                },
+            ],
+        },
+        {
+            title: "Payments",
+            url: "/payments",
+            icon: Wallet,
             items: [
                 {
                     title: "General",
-                    url: "#",
+                    url: "/payments",
                 },
+            ],
+        },
+        {
+            title: "Purchases",
+            url: "/purchases",
+            icon: ShoppingBag,
+            items: [
                 {
-                    title: "Team",
-                    url: "#",
-                },
-                {
-                    title: "Billing",
-                    url: "#",
-                },
-                {
-                    title: "Limits",
-                    url: "#",
+                    title: "New Item",
+                    url: "/purchases/new/item",
                 },
             ],
         },
