@@ -37,3 +37,11 @@ export function formatCurrencyInBDT(amount: number) {
 
     return `৳${formatted}`;
 }
+
+export function formatUnit(unitRaw: string) {
+    return unitRaw
+        .toLowerCase()
+        .split("_")
+        .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+        .join(" ");
+}
