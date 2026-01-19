@@ -48,10 +48,12 @@ export const addInitialItemSchema = z.object({
     itemId: z.string().uuid(),
     quantity: decimalNumber,
     unitCost: decimalOptional,
+    date: z.coerce.date(),
 });
 
 export type AddStockItemSchema = z.infer<typeof addStockItemSchema>;
 export type AddStockLedger = z.infer<typeof addStockLedgerSchema>;
 export type AddConsumptionSchema = z.infer<typeof addConsumptionSchema>;
 
-export type AddInitialItem = z.infer<typeof addInitialItemSchema>;
+export type AddInitialItemInput = z.input<typeof addInitialItemSchema>;
+export type AddInitialItemOutput = z.output<typeof addInitialItemSchema>;
