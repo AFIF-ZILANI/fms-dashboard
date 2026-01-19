@@ -217,8 +217,8 @@ model StockLedger {
   unit_cost       Decimal?    @db.Decimal(10, 2)
   reason          StockReason // PURCHASE, CONSUMPTION, SALE, WASTAGE
   occurred_at     DateTime
-  ref_type        RefType // CONSUMPTION, SALE, PURCHASE
-  ref_id          String // points to domain record
+  ref_type        RefType? // CONSUMPTION, SALE, PURCHASE
+  ref_id          String? // points to domain record
   item            Item        @relation(fields: [item_id], references: [id])
 
   @@unique([idempotency_key])
@@ -647,6 +647,7 @@ enum StockReason {
   WASTAGE
   EXPIRED
   RETURN
+  OPENING_BALANCE
 }
 
 enum ExpenseCategory {
