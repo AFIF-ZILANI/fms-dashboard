@@ -17,19 +17,24 @@ export const decimalNumber = z.preprocess(
         )
 );
 
-export const decimalOptional = z.preprocess(
-    (val) => {
-        if (typeof val === "string") {
-            const parsed = Number(val);
-            return Number.isFinite(parsed) ? parsed : undefined;
-        }
-        return val;
-    },
-    z
-        .number({ error: "Value is required" })
-        .refine(
-            (v) => Number(v.toFixed(2)) === v,
-            "Maximum 2 decimal places allowed"
-        )
-        .optional()
-);
+export const decimalOptional = z
+    .preprocess(
+        (val) => {
+            if (val === "" || val === undefined || val === null)
+                return undefined;
+
+            if (typeof val === "string") {
+                const parsed = Number(val);
+                return Number.isFinite(parsed) ? parsed : undefined;
+            }
+
+            return val;
+        },
+        z
+            .number()
+            .refine(
+                (v) => Number(v.toFixed(2)) === v,
+                "Maximum 2 decimal places allowed"
+            )
+    )
+    .optional();
