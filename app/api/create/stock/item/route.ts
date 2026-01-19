@@ -1,7 +1,7 @@
 import { Prisma } from "@/app/generated/prisma/client";
 import { errorResponse, response } from "@/lib/apiResponse";
 import prisma from "@/lib/prisma";
-import { addStockItemSchema } from "@/schemas/item.schem";
+import { addStockItemSchema } from "@/schemas/item.schema";
 import { NextRequest } from "next/server";
 
 export async function POST(req: NextRequest) {
