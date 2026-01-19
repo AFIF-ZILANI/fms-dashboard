@@ -73,6 +73,7 @@ import { formatCurrencyInBDT } from "@/lib/strings";
 import { toast } from "sonner";
 import { Spinner } from "@/components/ui/spinner";
 import { useRouter } from "next/navigation";
+import { InitialStockItemForm } from "@/components/fab-dialogs/add-initial-stock-item.dialog";
 
 const ADMIN_ID = "35204ae0-a642-4bbb-996b-c8b800fc0643";
 
@@ -372,7 +373,7 @@ export default function NewPurchasePage() {
         },
     ];
 
-    useEffect(() => console.log(rows), [rows]);
+    // useEffect(() => console.log(rows), [rows]);
 
     const table = useReactTable({
         data: rows,
@@ -423,7 +424,7 @@ export default function NewPurchasePage() {
     );
 
     return (
-        <div className="max-w-6xl mx-auto p-6 space-y-6">
+        <div className="max-w-6xl mx-auto p-6 space-y-6 mb-[5rem]">
             {/* Page Header */}
             <div>
                 <h1 className="text-2xl font-bold">New Purchase</h1>
@@ -1010,7 +1011,8 @@ export default function NewPurchasePage() {
                         )}
                     </Card>
 
-                    <div className="flex gap-4">
+                    <div className="flex justify-between">
+                        <div className="flex gap-4">
                         <Button type="submit" disabled={isPending}>
                             {isPending ? <Spinner /> : <Save />}
                             {isPending ? "Saving purchase" : "Save Purchase"}
@@ -1022,6 +1024,10 @@ export default function NewPurchasePage() {
                         >
                             Cancel
                         </Button>
+                    </div>
+                    {itemsList.length && (
+                            <InitialStockItemForm items={itemsList} />
+                        )}
                     </div>
                 </form>
             </Form>
