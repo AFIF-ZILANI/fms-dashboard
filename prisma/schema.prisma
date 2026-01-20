@@ -233,6 +233,7 @@ model Item {
   category       ResourceCategories
   unit           Units
   meta_data      Json
+  reorder_level  Float              @default(0)
   updated_at     DateTime           @updatedAt
   created_at     DateTime           @default(now())
   ledger_entries StockLedger[]
@@ -241,6 +242,8 @@ model Item {
   saleItems      SaleItem[]
 
   purchaseItems PurchaseItem[]
+
+  @@index([name, category])
 }
 
 model Consumption {
