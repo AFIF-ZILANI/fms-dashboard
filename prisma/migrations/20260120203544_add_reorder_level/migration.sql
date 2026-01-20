@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE "Item" ADD COLUMN     "reorder_level" DOUBLE PRECISION NOT NULL DEFAULT 0;
