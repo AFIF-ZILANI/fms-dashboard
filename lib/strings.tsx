@@ -38,7 +38,7 @@ export function formatCurrencyInBDT(amount: number) {
     return `৳${formatted}`;
 }
 
-export function formatUnit(unitRaw: string) {
+export function formatEnums(unitRaw: string) {
     return unitRaw
         .toLowerCase()
         .split("_")
