@@ -14,7 +14,7 @@ export const addStockItemSchema = z.object({
     unit: z.nativeEnum(Units),
 
     isMetaDataAvailable: z.boolean(),
-
+    reorderLevel: decimalNumber,
     metaData: z.record(z.string(), z.string()).optional(), // medicine/feed/litter future-proof
 });
 
@@ -22,7 +22,7 @@ export const addStockLedgerSchema = z.object({
     itemId: z.string().uuid(),
     quantity: decimalNumber,
 
-    unitCost: decimalNumber.optional(),
+    unitCost: decimalOptional,
 
     reason: z.nativeEnum(StockReason),
 
@@ -51,7 +51,7 @@ export const addInitialItemSchema = z.object({
     date: z.coerce.date(),
 });
 
-export type AddStockItemSchema = z.infer<typeof addStockItemSchema>;
+export type AddStockItemSchema = z.input<typeof addStockItemSchema>;
 export type AddStockLedger = z.infer<typeof addStockLedgerSchema>;
 export type AddConsumptionSchema = z.infer<typeof addConsumptionSchema>;
 

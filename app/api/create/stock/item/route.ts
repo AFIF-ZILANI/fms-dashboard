@@ -16,6 +16,7 @@ export async function POST(req: NextRequest) {
                 name: data.name,
                 category: data.category,
                 unit: data.unit,
+                reorder_level: data.reorderLevel,
                 meta_data: data.isMetaDataAvailable
                     ? data.metaData || {}
                     : Prisma.JsonNull, // <-- use Prisma.JsonNull instead of null
