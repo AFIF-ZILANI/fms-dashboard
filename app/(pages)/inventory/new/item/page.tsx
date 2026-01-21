@@ -162,6 +162,51 @@ export default function NewStockItemPage() {
                                 </FormItem>
                             )}
                         />
+                        <FormField
+                            name="reorderLevel"
+                            control={form.control}
+                            render={({ field }) => {
+                                return (
+                                    <FormItem>
+                                        <FormLabel>Reorder Level</FormLabel>
+                                        <FormControl>
+                                            <Input
+                                                inputMode="decimal"
+                                                placeholder="e.g. 10.5"
+                                                value={
+                                                    typeof field.value ===
+                                                        "string" ||
+                                                    typeof field.value ===
+                                                        "number"
+                                                        ? field.value
+                                                        : ""
+                                                }
+                                                onChange={(e) => {
+                                                    let v = e.target.value;
+
+                                                    if (!/^\d*\.?\d*$/.test(v))
+                                                        return;
+
+                                                    if (/^0\d+/.test(v)) {
+                                                        v = v.replace(
+                                                            /^0+/,
+                                                            ""
+                                                        );
+                                                    }
+
+                                                    if (v.startsWith(".")) {
+                                                        v = "0" + v;
+                                                    }
+
+                                                    field.onChange(v);
+                                                }}
+                                            />
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                );
+                            }}
+                        />
 
                         <div className="grid gap-4 md:grid-cols-10">
                             <div className="col-span-7">
