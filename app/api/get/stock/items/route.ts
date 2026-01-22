@@ -24,6 +24,7 @@ type StockItem = {
     last_movement_at: Date;
     last_movement_qty: number;
     last_movement_type: StockReason;
+    stock_state: "INITIALIZED" | "NOT_INITIALIZED";
     reorder_level: number;
 };
 
@@ -107,15 +108,26 @@ export async function GET(req: Request) {
 
         let stockCondition = Prisma.empty;
 
-        if (status === "out") {
-            stockCondition = Prisma.sql`AND COALESCE(s.stock, 0) = 0`;
-        } else if (status === "low") {
+        if (status === "OUT") {
             stockCondition = Prisma.sql`
-                AND COALESCE(s.stock, 0) > 0
-                AND COALESCE(s.stock, 0) < i.reorder_level
-            `;
-        } else if (status === "ok") {
-            stockCondition = Prisma.sql`AND COALESCE(s.stock, 0) >= i.reorder_level`;
+    AND lm.item_id IS NOT NULL
+    AND COALESCE(s.stock, 0) = 0
+  `;
+        } else if (status === "LOW") {
+            stockCondition = Prisma.sql`
+    AND lm.item_id IS NOT NULL
+    AND COALESCE(s.stock, 0) > 0
+    AND COALESCE(s.stock, 0) < i.reorder_level
+  `;
+        } else if (status === "OK") {
+            stockCondition = Prisma.sql`
+    AND lm.item_id IS NOT NULL
+    AND COALESCE(s.stock, 0) >= i.reorder_level
+  `;
+        } else if (status === "NOT_INITIALIZED") {
+            stockCondition = Prisma.sql`
+    AND lm.item_id IS NULL
+  `;
         }
 
         let orderByClause = Prisma.empty;
@@ -171,7 +183,11 @@ export async function GET(req: Request) {
     COALESCE(s.stock, 0) AS stock,
     lm.quantity AS last_movement_qty,
     lm.occurred_at AS last_movement_at,
-    lm.reason AS last_movement_type
+    lm.reason AS last_movement_type,
+    CASE 
+      WHEN lm.item_id IS NULL THEN 'NOT_INITIALIZED'
+      ELSE 'INITIALIZED'
+    END AS stock_state
   FROM "Item" i
   LEFT JOIN stock_summary s ON s.item_id = i.id
   LEFT JOIN latest_movement lm ON lm.item_id = i.id
@@ -185,21 +201,33 @@ export async function GET(req: Request) {
 `;
 
         const countResult = await prisma.$queryRaw<{ total: number }[]>`
-            WITH stock_summary AS (
-                SELECT 
-                    item_id,
-                    SUM(quantity)::float AS stock
-                FROM "StockLedger"
-                GROUP BY item_id
-            )
-            SELECT COUNT(*)::int AS total
-            FROM "Item" i
-            LEFT JOIN stock_summary s ON s.item_id = i.id
-            WHERE 1=1
-                ${searchCondition}
-                ${categoryCondition}
-                ${stockCondition}
-        `;
+  WITH stock_summary AS (
+    SELECT 
+      item_id,
+      SUM(quantity)::float AS stock
+    FROM "StockLedger"
+    GROUP BY item_id
+  ),
+  latest_movement AS (
+    SELECT *
+    FROM (
+      SELECT 
+        sl.*,
+        ROW_NUMBER() OVER (PARTITION BY sl.item_id ORDER BY sl.occurred_at DESC) AS rn
+      FROM "StockLedger" sl
+    ) t
+    WHERE t.rn = 1
+  )
+  SELECT COUNT(*)::int AS total
+  FROM "Item" i
+  LEFT JOIN stock_summary s ON s.item_id = i.id
+  LEFT JOIN latest_movement lm ON lm.item_id = i.id
+  WHERE 1=1
+    ${searchCondition}
+    ${categoryCondition}
+    ${stockCondition}
+`;
+
         const formatedItems: InventoryItem[] = items.map((i) => ({
             id: i.id,
             name: i.name,
@@ -210,11 +238,13 @@ export async function GET(req: Request) {
             movementQuantity: i.last_movement_qty,
             movementType: i.last_movement_type,
             status:
-                i.stock === 0
-                    ? "out"
-                    : i.stock > 0 && i.stock < i.reorder_level
-                      ? "low"
-                      : "ok",
+                i.stock_state === "NOT_INITIALIZED"
+                    ? "NOT_INITIALIZED"
+                    : i.stock === 0
+                      ? "OUT"
+                      : i.stock > 0 && i.stock < i.reorder_level
+                        ? "LOW"
+                        : "OK",
         }));
         const total = countResult[0]?.total ?? 0;
 
