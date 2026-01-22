@@ -22,14 +22,15 @@ export const parsePositiveInt = (
 
 export function getStatusBadge(status: ValidStatus) {
     const map = {
-        ok: "bg-green-100 text-green-800",
-        low: "bg-amber-100 text-amber-800",
-        out: "bg-red-100 text-red-800",
+        OK: "bg-green-100 text-green-800",
+        LOW: "bg-amber-100 text-amber-800",
+        OUT: "bg-red-100 text-red-800",
+        NOT_INITIALIZED: "bg-blue-100 text-blue-800",
     };
 
     return (
         <Badge className={cn("text-xs font-bold", map[status])}>
-            {status.toUpperCase()}
+            {formatEnums(status)}
         </Badge>
     );
 }
