@@ -356,11 +356,13 @@ model PurchaseItem {
   item_id String
   item    Item   @relation(fields: [item_id], references: [id])
 
-  quantity    Int
-  unit        Units
-  unit_price  Decimal  @db.Decimal(10, 2)
-  total_price Decimal  @db.Decimal(10, 2)
-  created_at  DateTime @default(now())
+  mfg_date        DateTime? // Manufacturing date
+  expiration_date DateTime? // Add this field
+  quantity        Decimal   @db.Decimal(10, 3)
+  unit            Units
+  unit_price      Decimal   @db.Decimal(10, 2)
+  total_price     Decimal   @db.Decimal(10, 2)
+  created_at      DateTime  @default(now())
 }
 
 model Payment {
