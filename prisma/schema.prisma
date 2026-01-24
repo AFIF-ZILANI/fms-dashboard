@@ -35,9 +35,9 @@ model Batches {
   weightRecords         WeightRecords[]
   batchHouseAllocations BatchHouseAllocation[]
   events                HouseEvents[]
-  consumptions          Consumption[]
   expenses              Expense[]
   birdSales             BirdSale[]
+  batchFeedingPrograms  BatchFeedingProgram[]
 
   @@index([farm_code, sector_code, product_code, batch_id])
 }
@@ -59,7 +59,7 @@ model BatchSuppliers {
 model HouseEvents {
   id            String    @id @default(uuid())
   batch_id      String?
-  house_id      Int
+  house_id      String
   event_type    EventType
   quantity      Float
   unit          Units
@@ -75,7 +75,7 @@ model WeightRecords {
   id               String   @id @default(uuid())
   batch_id         String?
   batch            Batches? @relation(fields: [batch_id], references: [id], onDelete: SetNull)
-  house_id         Int
+  house_id         String
   house            Houses   @relation(fields: [house_id], references: [id], onDelete: Cascade)
   average_wt_grams Decimal  @db.Decimal(10, 2)
   sample_size      Int
@@ -90,7 +90,7 @@ model WeightRecords {
 }
 
 model Houses {
-  id         Int       @id @default(autoincrement())
+  id         String    @id @default(uuid())
   name       String // custom name like "Brooder 3"
   type       HouseType
   number     Int
@@ -100,15 +100,13 @@ model Houses {
   weightRecords         WeightRecords[]
   batchHouseAllocations BatchHouseAllocation[]
   events                HouseEvents[]
-
-  consumptions Consumption[]
 }
 
 model BatchHouseAllocation {
   id         String    @id @default(uuid())
   batch_id   String
   batch      Batches   @relation(fields: [batch_id], references: [id], onDelete: Cascade)
-  house_id   Int
+  house_id   String
   house      Houses    @relation(fields: [house_id], references: [id], onDelete: Cascade)
   quantity   Int // number of chicks allocated to this house
   start_date DateTime
@@ -210,56 +208,71 @@ model Doctors {
 }
 
 model StockLedger {
-  id              String      @id @default(uuid())
-  item_id         String
+  id String @id @default(uuid())
+
+  item_id String
+  item    Item   @relation(fields: [item_id], references: [id])
+
+  quantity Decimal @db.Decimal(10, 3)
+
+  // Movement semantics
+  from_location_type LocationType?
+  from_location_id   String?
+
+  to_location_type LocationType?
+  to_location_id   String?
+
+  reason      StockReason
+  occurred_at DateTime    @default(now())
+
+  unit_cost Decimal?       @db.Decimal(10, 2)
+  direction StockDirection
+
+  // tracing & safety
+  ref_type        RefType?
+  ref_id          String?
   idempotency_key String
-  quantity        Decimal     @db.Decimal(10, 3)
-  unit_cost       Decimal?    @db.Decimal(10, 2)
-  reason          StockReason // PURCHASE, CONSUMPTION, SALE, WASTAGE
-  occurred_at     DateTime
-  ref_type        RefType? // CONSUMPTION, SALE, PURCHASE
-  ref_id          String? // points to domain record
-  item            Item        @relation(fields: [item_id], references: [id])
 
   @@unique([idempotency_key])
-  @@unique([ref_type, ref_id, item_id, reason])
   @@index([item_id, occurred_at])
+  @@index([from_location_type, from_location_id])
+  @@index([to_location_type, to_location_id])
   @@index([ref_type, ref_id])
 }
 
 model Item {
-  id             String             @id @default(uuid())
-  name           String
-  category       ResourceCategories
-  unit           Units
-  meta_data      Json
-  reorder_level  Float              @default(0)
-  updated_at     DateTime           @updatedAt
-  created_at     DateTime           @default(now())
-  ledger_entries StockLedger[]
-  suppliers      Suppliers[]
-  consumptions   Consumption[]
-  saleItems      SaleItem[]
+  id                    String             @id @default(uuid())
+  name                  String
+  category              ResourceCategories
+  unit                  Units
+  meta_data             Json
+  reorder_level         Decimal            @default(0) @db.Decimal(10, 3)
+  preferred_reorder_qty Decimal?           @db.Decimal(10, 3)
+  lead_time_days        Int?
+  updated_at            DateTime           @updatedAt
+  created_at            DateTime           @default(now())
+  ledger_entries        StockLedger[]
+  suppliers             Suppliers[]
+  saleItems             SaleItem[]
 
-  purchaseItems PurchaseItem[]
+  purchaseItems        PurchaseItem[]
+  batchFeedingPrograms BatchFeedingProgram[]
 
   @@index([name, category])
 }
 
-model Consumption {
-  id       String             @id @default(uuid())
-  batch_id String
-  house_id Int
-  item_id  String
-  quantity Float
-  purpose  ConsumptionPurpose
-  date     DateTime
+model BatchFeedingProgram {
+  id        String   @id @default(uuid())
+  batch_id  String
+  feed_type FeedType // STARTER, GROWER, FINISHER
+  item_id   String
+  start_day Int // Day of batch life
+  end_day   Int?
 
   batch Batches @relation(fields: [batch_id], references: [id])
-  house Houses  @relation(fields: [house_id], references: [id])
   item  Item    @relation(fields: [item_id], references: [id])
 
-  @@index([batch_id, house_id, date])
+  @@index([batch_id, start_day, end_day])
 }
 
 model Sale {
@@ -645,16 +658,6 @@ enum EventType {
   MORTALITY
 }
 
-enum StockReason {
-  PURCHASE
-  CONSUMPTION
-  SALE
-  WASTAGE
-  EXPIRED
-  RETURN
-  OPENING_BALANCE
-}
-
 enum ExpenseCategory {
   LABOR
   ELECTRICITY
@@ -662,15 +665,8 @@ enum ExpenseCategory {
   INTERNET
 }
 
-enum ConsumptionPurpose {
-  FEED // daily feeding
-  MEDICINE // therapeutic treatment
-  VACCINE // scheduled vaccination
-  SUPPLEMENT // vitamins, minerals, probiotics
-  LITTER // husk, sawdust, bedding, insulation
-}
-
 enum RefType {
+  HOUSE_EVENT
   CONSUMPTION
   SALE
   PURCHASE
@@ -710,4 +706,37 @@ enum PaymentRefType {
   BIRD_SALE
   PURCHASE
   EXPENSE
+}
+
+enum StockDirection {
+  IN
+  OUT
+}
+
+enum LocationType {
+  WAREHOUSE
+  HOUSE
+  CUSTOMER
+  DISPOSAL
+  SUPPLIER
+}
+
+enum StockReason {
+  PURCHASE
+  TRANSFER
+  CONSUMPTION
+  SALE
+  WASTAGE
+  EXPIRED
+  RETURN
+  ADJUSTMENT
+  OPENING_BALANCE
+}
+
+enum FeedType {
+  PRE_STARTER
+  STARTER
+  GROWER
+  FINISHER
+  LAYER
 }
