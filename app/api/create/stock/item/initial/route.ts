@@ -1,4 +1,8 @@
-import { StockReason } from "@/app/generated/prisma/enums";
+import {
+    LocationType,
+    StockDirection,
+    StockReason,
+} from "@/app/generated/prisma/enums";
 import { errorResponse, response } from "@/lib/apiResponse";
 import { throwError } from "@/lib/error";
 import prisma from "@/lib/prisma";
@@ -32,6 +36,8 @@ export async function POST(req: NextRequest) {
                     unit_cost: data.unitCost,
                     occurred_at: data.date,
                     idempotency_key: `OPENING:${data.itemId}`,
+                    to_location_type: LocationType.WAREHOUSE,
+                    direction: StockDirection.IN,
                 },
             });
         });
