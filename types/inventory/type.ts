@@ -18,10 +18,13 @@ export type AttentionItem = {
     name: string;
     unit: string;
     stock: number;
-    reorderLevel: number;
+    // reorderLevel: number;
     lastPurchased: Date | null;
-    status: ValidStatus;
-    purchaseType: "PURCHASE" | "OPENING_BALANCE" | null;
+    status: "LOW" | "OUT" | "NOT_INITIALIZED";
+    // purchaseType: "PURCHASE" | "OPENING_BALANCE" | null;
+    // avgDailyUsage: number | null;
+    // daysLeft: number | null;
+    suggestionMessage: string | null;
 };
 
 export type InventoryItem = {
