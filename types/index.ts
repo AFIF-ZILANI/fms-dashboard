@@ -132,3 +132,7 @@ export type ActorSearchItem = {
     name: string;
     type: UserRole;
 };
+
+export type GetHouses = {
+    houses: { id: string; label: string; runningBatch: string }[];
+};
