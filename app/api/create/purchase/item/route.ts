@@ -1,9 +1,11 @@
 import {
     ExpenseCategory,
+    LocationType,
     PaymentRefType,
     PaymentStatus,
     PaymentType,
     RefType,
+    StockDirection,
     StockReason,
     UserRole,
 } from "@/app/generated/prisma/enums";
@@ -199,12 +201,15 @@ export async function POST(req: NextRequest) {
                 data: data.items.map((item) => ({
                     item_id: item.itemId,
                     idempotency_key: `${StockReason.PURCHASE}:${purchase.id}:${item.itemId}`,
+                    direction: StockDirection.IN,
                     quantity: item.quantity,
                     unit_cost: item.unitPrice,
                     reason: StockReason.PURCHASE,
                     occurred_at: data.purchaseDate,
                     ref_type: RefType.PURCHASE,
                     ref_id: purchase.id,
+                    from_location_type: LocationType.SUPPLIER,
+                    to_location_type: LocationType.WAREHOUSE,
                 })),
             });
         });
