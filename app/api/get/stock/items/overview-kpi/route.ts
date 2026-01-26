@@ -85,7 +85,7 @@ export async function GET() {
         const lowStock = itemStocks.filter(
             (stock) =>
                 stock.currentStock > 0 &&
-                stock.currentStock < stock.reorderLevel
+                stock.currentStock < Number(stock.reorderLevel)
         ).length;
         // const expiringSoon = expiringItemIds.size;
 
