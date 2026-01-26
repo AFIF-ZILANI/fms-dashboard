@@ -38,13 +38,10 @@ import { Input } from "../ui/input";
 import { toast } from "sonner";
 import { Spinner } from "../ui/spinner";
 import { EventTypeArr, HouseEventEnum, HouseEventUnitEnum } from "@/types/enum";
-import { EVENT_UNIT_MAP, HouseEventType } from "@/types";
+import { EVENT_UNIT_MAP, GetHouses, HouseEventType } from "@/types";
 
 interface HelperResponse {
-    data: {
-        batches: { id: string; label: string }[];
-        houses: { id: number; label: string }[];
-    };
+    data: GetHouses;
 }
 
 export function AddEventDialog() {
@@ -52,16 +49,13 @@ export function AddEventDialog() {
     const form = useForm<HouseEventFormInput>({
         resolver: zodResolver(addHouseEventSchema),
         defaultValues: {
-            batchId: "",
-            houseId: undefined,
-            quantity: undefined,
-            eventType: undefined,
+            occurredAt: new Date(),
         },
     });
 
     /* ---------------- Data ---------------- */
 
-    const { data: helperData } = useGetData("/get-data/batches-and-houses");
+    const { data: helperData } = useGetData<HelperResponse>("/get/houses");
 
     const {
         mutate,
@@ -71,21 +65,11 @@ export function AddEventDialog() {
         error,
     } = usePostData("/create/record/event");
 
-    const batches: { id: string; label: string }[] =
-        (helperData as HelperResponse)?.data?.batches ?? [];
+    const houses = helperData?.data.houses;
+    // console.log(houses);
 
-    const houses: { id: number; label: string }[] =
-        (helperData as HelperResponse)?.data?.houses ?? [];
-    console.log(batches);
-    console.log(houses);
-
+    const selectedHouseId = form.watch("houseId");
     /* ---------------- Effects ---------------- */
-
-    useEffect(() => {
-        if (batches.length === 1) {
-            form.setValue("batchId", batches[0].id);
-        }
-    }, [batches, form]);
 
     useEffect(() => {
         if (isSuccess) {
@@ -104,7 +88,7 @@ export function AddEventDialog() {
     /* ---------------- Submit ---------------- */
 
     const onSubmit = (values: HouseEventFormInput) => {
-        console.log(values);
+        // console.log(values);
         const normalizedQuantity =
             values.eventType === "FEED"
                 ? normalizeQuantity(
@@ -171,56 +155,17 @@ export function AddEventDialog() {
                             </DialogDescription>
                         </DialogHeader>
 
-                        <div className="space-y-4 md:space-y-4">
-                            {/* Batch */}
-                            <FormField
-                                control={form.control}
-                                name="batchId"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>Batch *</FormLabel>
-                                        <Select
-                                            value={field.value}
-                                            onValueChange={field.onChange}
-                                        >
-                                            <FormControl>
-                                                <SelectTrigger className="w-full">
-                                                    <SelectValue placeholder="Select batch" />
-                                                </SelectTrigger>
-                                            </FormControl>
-                                            <SelectContent>
-                                                {batches.map((b) => (
-                                                    <SelectItem
-                                                        key={b.id}
-                                                        value={b.id}
-                                                    >
-                                                        {b.label}
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
-                                        <FormDescription>
-                                            Active production batch
-                                        </FormDescription>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
-
+                        <div className="space-y-4 md:space-y-4 mt-4">
                             {/* House */}
                             <FormField
                                 control={form.control}
                                 name="houseId"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>House *</FormLabel>
+                                        <FormLabel>House</FormLabel>
                                         <Select
-                                            value={
-                                                field.value?.toString() ?? ""
-                                            }
-                                            onValueChange={(v) =>
-                                                field.onChange(Number(v))
-                                            }
+                                            value={field.value}
+                                            onValueChange={field.onChange}
                                         >
                                             <FormControl>
                                                 <SelectTrigger className="w-full">
@@ -228,18 +173,34 @@ export function AddEventDialog() {
                                                 </SelectTrigger>
                                             </FormControl>
                                             <SelectContent>
-                                                {houses.map((h) => (
-                                                    <SelectItem
-                                                        key={h.id}
-                                                        value={h.id.toString()}
-                                                    >
-                                                        {h.label}
-                                                    </SelectItem>
-                                                ))}
+                                                {houses &&
+                                                    houses.map((house) => (
+                                                        <SelectItem
+                                                            key={house.id}
+                                                            value={house.id}
+                                                        >
+                                                            {house.label}
+                                                        </SelectItem>
+                                                    ))}
                                             </SelectContent>
                                         </Select>
                                         <FormDescription>
-                                            Physical house location
+                                            {houses && selectedHouseId ? (
+                                                <span className="text-xs text-muted-foreground">
+                                                    Running batch:{" "}
+                                                    {
+                                                        houses.find(
+                                                            (h) =>
+                                                                h.id ===
+                                                                selectedHouseId
+                                                        )?.runningBatch
+                                                    }
+                                                </span>
+                                            ) : (
+                                                <span className="text-xs text-muted-foreground">
+                                                    No house selected
+                                                </span>
+                                            )}
                                         </FormDescription>
                                         <FormMessage />
                                     </FormItem>
@@ -252,7 +213,7 @@ export function AddEventDialog() {
                                 name="eventType"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>Event Type *</FormLabel>
+                                        <FormLabel>Event Type</FormLabel>
                                         <Select
                                             value={
                                                 field.value
@@ -358,9 +319,7 @@ export function AddEventDialog() {
                                             name="unit"
                                             render={({ field }) => (
                                                 <FormItem>
-                                                    <FormLabel>
-                                                        Unit *
-                                                    </FormLabel>
+                                                    <FormLabel>Unit</FormLabel>
                                                     <Select
                                                         value={
                                                             field.value
