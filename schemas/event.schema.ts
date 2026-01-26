@@ -1,31 +1,13 @@
 import { z } from "zod";
 import { HouseEventEnum, HouseEventUnitEnum } from "@/types/enum";
+import { decimalNumber } from "./helper";
 
 export const addHouseEventSchema = z
     .object({
-        batchId: z.string().uuid(),
-        houseId: z.number().int().positive(),
+        houseId: z.string().uuid(),
         eventType: z.nativeEnum(HouseEventEnum),
-
-        quantity: z.preprocess(
-            (val) => {
-                if (typeof val === "string" && val.trim() !== "") {
-                    return Number(val);
-                }
-                return val;
-            },
-            z
-                .number({
-                    error: "Quantity is required",
-                })
-                .positive("Quantity must be greater than 0")
-                .refine((v) => {
-                    const str = v.toString();
-                    const decimals = str.split(".")[1];
-                    return !decimals || decimals.length <= 2;
-                }, "Maximum 2 decimal places allowed")
-        ),
-
+        occurredAt: z.coerce.date(),
+        quantity: decimalNumber,
         unit: z.nativeEnum(HouseEventUnitEnum),
     })
     .superRefine((data, ctx) => {
@@ -53,11 +35,12 @@ export const addHouseEventSchema = z
 
         if (
             data.eventType === HouseEventEnum.FEED &&
-            data.unit !== HouseEventUnitEnum.KG
+            data.unit !== HouseEventUnitEnum.KG &&
+            data.unit !== HouseEventUnitEnum.BAG
         ) {
             ctx.addIssue({
                 path: ["unit"],
-                message: "Feed events must use KG",
+                message: "Feed events must use KG or BAG",
                 code: z.ZodIssueCode.custom,
             });
         }
