@@ -15,18 +15,6 @@ export async function POST(req: NextRequest) {
         const DEV_ADMIN_PROFILE_UUID = await GetAdminID();
 
         await prisma.$transaction(async (tx) => {
-            const validBatch = await tx.batches.findFirst({
-                where: {
-                    id: data.batchId,
-                },
-            });
-            if (!validBatch) {
-                throwError({
-                    message: "Invalid batch Id",
-                    statusCode: 400,
-                });
-            }
-
             const validHouse = await tx.houses.findFirst({
                 where: {
                     id: data.houseId,
@@ -40,11 +28,46 @@ export async function POST(req: NextRequest) {
                 });
             }
 
+            const allocation = await tx.batchHouseAllocation.findFirst({
+                where: {
+                    house_id: data.houseId,
+
+                    start_date: {
+                        lte: data.occurredAt,
+                    },
+
+                    OR: [
+                        { end_date: null },
+                        {
+                            end_date: {
+                                gte: data.occurredAt,
+                            },
+                        },
+                    ],
+                },
+                select: {
+                    batch: {
+                        select: {
+                            starting_date: true,
+                            id: true,
+                        },
+                    },
+                },
+            });
+
+            if (!allocation) {
+                throwError({
+                    message:
+                        "No active batch found for this house at this time.",
+                    statusCode: 400,
+                });
+            }
+
             await tx.weightRecords.create({
                 data: {
                     batch: {
                         connect: {
-                            id: data.batchId,
+                            id: allocation.batch.id,
                         },
                     },
                     house: {
@@ -53,7 +76,7 @@ export async function POST(req: NextRequest) {
                         },
                     },
                     sample_size: data.sampleSize,
-                    farm_date: getFarmDateTime(new Date()),
+                    farm_date: getFarmDateTime(data.occurredAt),
                     average_wt_grams: data.avgWeightInGrams,
                     date: new Date(),
                     measured_by: {

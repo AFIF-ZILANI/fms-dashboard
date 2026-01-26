@@ -39,12 +39,10 @@ import {
     DialogTrigger,
 } from "@/components/ui/dialog";
 import { Spinner } from "../ui/spinner";
+import { GetHouses } from "@/types";
 
 interface HelperResponse {
-    data: {
-        batches: { id: string; label: string }[];
-        houses: { id: number; label: string }[];
-    };
+    data: GetHouses;
 }
 
 /* ---------------------------------- */
@@ -58,13 +56,15 @@ export function AddWeightRecordDialog() {
 
     const form = useForm<AvgWeightFormInput>({
         resolver: zodResolver(addWeightRecordSchema),
+        defaultValues: {
+            occurredAt: new Date(),
+        },
     });
 
     /* ---------------- Data ---------------- */
 
-    const { data: helperData, isFetching: helperIsFetching } = useGetData(
-        "/get-data/batches-and-houses"
-    );
+    const { data: helperData, isFetching: helperIsFetching } =
+        useGetData<HelperResponse>("/get/houses");
 
     const {
         mutate,
@@ -74,26 +74,18 @@ export function AddWeightRecordDialog() {
         error,
     } = usePostData("/create/record/weight");
 
-    const batches: { id: string; label: string }[] =
-        (helperData as HelperResponse)?.data?.batches ?? [];
+    const houses = helperData?.data.houses;
+    console.log(houses);
 
-    const houses: { id: number; label: string }[] =
-        (helperData as HelperResponse)?.data?.houses ?? [];
-    // console.log(batches);
-    // console.log(houses);
+    const selectedHouseId = form.watch("houseId");
 
     /* ---------------- Effects ---------------- */
-
-    useEffect(() => {
-        if (batches.length === 1) {
-            form.setValue("batchId", batches[0].id);
-        }
-    }, [batches, form]);
 
     useEffect(() => {
         if (isSuccess) {
             toast.success("Weight record saved successfully!");
             form.reset();
+            form.setValue("houseId", "");
             // setDialogOpen(false);
         }
 
@@ -141,42 +133,6 @@ export function AddWeightRecordDialog() {
                         </DialogHeader>
 
                         <div className="space-y-4 md:space-y-6">
-                            {/* Batch */}
-                            <FormField
-                                control={form.control}
-                                name="batchId"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>Batch *</FormLabel>
-                                        <Select
-                                            value={field.value}
-                                            onValueChange={field.onChange}
-                                            disabled={helperIsFetching}
-                                        >
-                                            <FormControl>
-                                                <SelectTrigger className="w-full">
-                                                    <SelectValue placeholder="Select a batch" />
-                                                </SelectTrigger>
-                                            </FormControl>
-                                            <SelectContent>
-                                                {batches.map((batch, index) => (
-                                                    <SelectItem
-                                                        key={index}
-                                                        value={batch.id}
-                                                    >
-                                                        {batch.label}
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
-                                        <FormDescription>
-                                            Select the batch for this record
-                                        </FormDescription>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
-
                             {/* House */}
                             <FormField
                                 control={form.control}
@@ -185,14 +141,8 @@ export function AddWeightRecordDialog() {
                                     <FormItem>
                                         <FormLabel>House *</FormLabel>
                                         <Select
-                                            value={
-                                                field.value
-                                                    ? field.value.toString()
-                                                    : ""
-                                            }
-                                            onValueChange={(v) =>
-                                                field.onChange(Number(v))
-                                            }
+                                            value={field.value}
+                                            onValueChange={field.onChange}
                                             disabled={helperIsFetching}
                                         >
                                             <FormControl>
@@ -201,18 +151,34 @@ export function AddWeightRecordDialog() {
                                                 </SelectTrigger>
                                             </FormControl>
                                             <SelectContent>
-                                                {houses.map((house, index) => (
-                                                    <SelectItem
-                                                        key={index}
-                                                        value={house.id.toLocaleString()}
-                                                    >
-                                                        {house.label}
-                                                    </SelectItem>
-                                                ))}
+                                                {houses &&
+                                                    houses.map((house) => (
+                                                        <SelectItem
+                                                            key={house.id}
+                                                            value={house.id}
+                                                        >
+                                                            {house.label}
+                                                        </SelectItem>
+                                                    ))}
                                             </SelectContent>
                                         </Select>
                                         <FormDescription>
-                                            House where birds were weighed
+                                            {houses && selectedHouseId ? (
+                                                <span className="text-xs text-muted-foreground">
+                                                    Running batch:{" "}
+                                                    {
+                                                        houses.find(
+                                                            (h) =>
+                                                                h.id ===
+                                                                selectedHouseId
+                                                        )?.runningBatch
+                                                    }
+                                                </span>
+                                            ) : (
+                                                <span className="text-xs text-muted-foreground">
+                                                    No house selected
+                                                </span>
+                                            )}
                                         </FormDescription>
                                         <FormMessage />
                                     </FormItem>
@@ -311,7 +277,10 @@ export function AddWeightRecordDialog() {
                             {/* Form Reset */}
                             <Button
                                 variant={"outline"}
-                                onClick={() => form.reset()}
+                                onClick={() => {
+                                    form.reset();
+                                    form.setValue("houseId", "");
+                                }}
                             >
                                 <RefreshCcw />
                                 Reset
