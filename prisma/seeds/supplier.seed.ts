@@ -6,17 +6,17 @@ import { generateProfiles } from "./profile.seed";
 import { faker } from "@faker-js/faker";
 import prisma from "@/lib/prisma";
 
-type CustomerInput = {
-    profile: ReturnType<typeof generateProfiles>[number];
-    customer: {
-        id: string;
-        profile_id: string;
-        rating: number | null;
-        company: string | null;
-        created_at: Date;
-        updated_at: Date;
-    };
-};
+// type CustomerInput = {
+//     profile: ReturnType<typeof generateProfiles>[number];
+//     customer: {
+//         id: string;
+//         profile_id: string;
+//         rating: number | null;
+//         company: string | null;
+//         created_at: Date;
+//         updated_at: Date;
+//     };
+// };
 
 type SupplierInput = {
     profile: ReturnType<typeof generateProfiles>[number];
