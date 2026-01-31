@@ -38,6 +38,8 @@ model Batches {
   expenses              Expense[]
   birdSales             BirdSale[]
   batchFeedingPrograms  BatchFeedingProgram[]
+  consumptions          Consumption[]
+  stockReservations     StockReservation[]
 
   @@index([farm_code, sector_code, product_code, batch_id])
 }
@@ -49,7 +51,6 @@ model BatchSuppliers {
   price_per_chicks Decimal   @db.Decimal(10, 2)
   quantity         Int // number of chicks from this supplier
   delivery_date    DateTime
-  quality_score    Float
   batch            Batches   @relation(fields: [batch_id], references: [id], onDelete: Cascade)
   supplier         Suppliers @relation(fields: [supplier_id], references: [id], onDelete: Cascade)
 
@@ -97,24 +98,38 @@ model Houses {
   created_at DateTime  @default(now())
   updated_at DateTime  @updatedAt
 
-  weightRecords         WeightRecords[]
-  batchHouseAllocations BatchHouseAllocation[]
-  events                HouseEvents[]
+  weightRecords    WeightRecords[]
+  allocations_to   BatchHouseAllocation[] @relation("ToHouse")
+  allocations_from BatchHouseAllocation[] @relation("FromHouse")
+  events           HouseEvents[]
+
+  consumptions Consumption[]
+
+  stockReservations StockReservation[]
 }
 
 model BatchHouseAllocation {
-  id         String    @id @default(uuid())
-  batch_id   String
-  batch      Batches   @relation(fields: [batch_id], references: [id], onDelete: Cascade)
-  house_id   String
-  house      Houses    @relation(fields: [house_id], references: [id], onDelete: Cascade)
-  quantity   Int // number of chicks allocated to this house
-  start_date DateTime
-  end_date   DateTime? // null = currently in this house
-  created_at DateTime  @default(now())
-  updated_at DateTime  @updatedAt
+  id String @id @default(uuid())
 
-  @@index([batch_id, house_id])
+  batch_id String
+  batch    Batches @relation(fields: [batch_id], references: [id], onDelete: Cascade)
+
+  from_house_id String?
+  from_house    Houses? @relation("FromHouse", fields: [from_house_id], references: [id], onDelete: SetNull)
+
+  to_house_id String?
+  to_house    Houses? @relation("ToHouse", fields: [to_house_id], references: [id], onDelete: Cascade)
+
+  quantity Int // quantity moved in THIS event (always positive)
+
+  reason      AllocationReason
+  occurred_at DateTime         @default(now())
+
+  created_at DateTime @default(now())
+
+  @@index([batch_id])
+  @@index([from_house_id])
+  @@index([to_house_id])
 }
 
 model Profiles {
@@ -238,6 +253,34 @@ model StockLedger {
   @@index([from_location_type, from_location_id])
   @@index([to_location_type, to_location_id])
   @@index([ref_type, ref_id])
+}
+
+model Consumption {
+  id       String   @id @default(uuid())
+  house_id String
+  batch_id String?
+  quantity Decimal  @db.Decimal(10, 3)
+  date     DateTime
+  note     String?
+
+  house      Houses   @relation(fields: [house_id], references: [id])
+  batch      Batches? @relation(fields: [batch_id], references: [id])
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+}
+
+model StockReservation {
+  id       String   @id @default(uuid())
+  house_id String
+  batch_id String?
+  quantity Decimal  @db.Decimal(10, 3)
+  date     DateTime
+  note     String
+
+  house      Houses   @relation(fields: [house_id], references: [id])
+  batch      Batches? @relation(fields: [batch_id], references: [id])
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
 }
 
 model Item {
@@ -739,4 +782,10 @@ enum FeedType {
   GROWER
   FINISHER
   LAYER
+}
+
+enum AllocationReason {
+  INITIAL // purchase → house
+  TRANSFER // house → house
+  ADJUSTMENT // correction (admin-only)
 }
