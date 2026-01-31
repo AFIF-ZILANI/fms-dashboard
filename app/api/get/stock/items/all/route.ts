@@ -18,11 +18,11 @@ export async function GET() {
         });
         const data: Item[] = [];
         res.forEach((item) => {
+            //@typescript-eslint/no-explicit-any
             const metadata = item.meta_data as Record<string, any> | null;
             if (
-                metadata && (metadata.company ||
-                metadata.brand ||
-                metadata.manufacturer)
+                metadata &&
+                (metadata.company || metadata.brand || metadata.manufacturer)
             ) {
                 data.push({
                     id: item.id,

@@ -6,6 +6,7 @@ import {
 } from "@/app/generated/prisma/enums";
 import { errorResponse, response } from "@/lib/apiResponse";
 import { getBatchAgeInDays, getFarmDateTime } from "@/lib/date-time";
+import { assertHouseHasRunningBatch, assertHouseIdsValid } from "@/lib/db";
 import { throwError } from "@/lib/error";
 import { GetAdminID } from "@/lib/get-admin";
 import prisma from "@/lib/prisma";
@@ -17,76 +18,46 @@ import { NextRequest } from "next/server";
 export async function POST(req: NextRequest) {
     try {
         const body = await req.json();
-        const data = addHouseEventSchema.parse(body);
+        const { houseId, occurredAt, quantity, unit, eventType } = addHouseEventSchema.parse(body);
 
         const DEV_ADMIN_PROFILE_UUID = await GetAdminID();
 
         await prisma.$transaction(async (tx) => {
-            const validHouse = await tx.houses.findFirst({
+            await assertHouseIdsValid(tx, [houseId]);
+
+            const batchHouse = await assertHouseHasRunningBatch(tx, houseId, occurredAt);
+            const batch = await tx.batches.findUnique({
                 where: {
-                    id: data.houseId,
-                },
-            });
-
-            if (!validHouse) {
-                throwError({
-                    message: "Invalid house Id",
-                    statusCode: 400,
-                });
-            }
-
-            const allocation = await tx.batchHouseAllocation.findFirst({
-                where: {
-                    house_id: data.houseId,
-
-                    start_date: {
-                        lte: data.occurredAt,
-                    },
-
-                    OR: [
-                        { end_date: null },
-                        {
-                            end_date: {
-                                gte: data.occurredAt,
-                            },
-                        },
-                    ],
+                    id: batchHouse.batch_id,
                 },
                 select: {
-                    batch: {
-                        select: {
-                            starting_date: true,
-                            id: true,
-                        },
-                    },
+                    id: true,
+                    starting_date: true,
                 },
             });
-
-            if (!allocation) {
+            if (!batch) {
                 throwError({
-                    message:
-                        "No active batch found for this house at this time.",
-                    statusCode: 400,
+                    message: "Batch not found",
+                    statusCode: 404,
                 });
             }
-
             const houseEvent = await tx.houseEvents.create({
                 data: {
                     batch: {
                         connect: {
-                            id: allocation.batch.id,
+                            id: batchHouse.batch_id,
                         },
                     },
                     house: {
                         connect: {
-                            id: data.houseId,
+                            id: houseId,
                         },
                     },
-                    quantity: data.quantity,
-                    unit: data.unit,
-                    event_type: data.eventType,
-                    farm_date: getFarmDateTime(data.occurredAt),
-                    occurred_at: data.occurredAt,
+                    quantity: quantity,
+                    unit: unit,
+                    event_type: eventType,
+                    farm_date: getFarmDateTime(occurredAt),
+                    occurred_at: occurredAt,
                     created_by: {
                         connect: {
                             id: DEV_ADMIN_PROFILE_UUID,
@@ -95,14 +66,14 @@ export async function POST(req: NextRequest) {
                 },
             });
 
-            if (data.eventType === HouseEventEnum.FEED) {
+            if (eventType === HouseEventEnum.FEED) {
                 const age = getBatchAgeInDays(
-                    allocation.batch.starting_date,
-                    data.occurredAt
+                    batch.starting_date,
+                    occurredAt
                 );
                 const feedProgram = await tx.batchFeedingProgram.findFirst({
                     where: {
-                        batch_id: allocation.batch.id,
+                        batch_id: batchHouse.batch_id,
                         start_day: {
                             lte: age,
                         },
@@ -133,10 +104,10 @@ export async function POST(req: NextRequest) {
                     data: {
                         item_id: feedProgram.item_id,
                         idempotency_key: `House-Event:${houseEvent.id}:${feedProgram.item_id}`,
-                        quantity: data.quantity,
+                        quantity: quantity,
                         direction: StockDirection.OUT,
                         reason: StockReason.CONSUMPTION,
-                        occurred_at: data.occurredAt,
+                        occurred_at: occurredAt,
                         ref_type: RefType.HOUSE_EVENT,
                         ref_id: houseEvent.id,
                     },
@@ -145,14 +116,14 @@ export async function POST(req: NextRequest) {
                     data: {
                         item_id: feedProgram.item_id,
                         idempotency_key: `House-Event:${houseEvent.id}:${feedProgram.item_id}`,
-                        quantity: data.quantity,
+                        quantity: quantity,
                         direction: StockDirection.OUT,
                         reason: StockReason.CONSUMPTION,
-                        occurred_at: data.occurredAt,
+                        occurred_at: occurredAt,
                         ref_type: RefType.HOUSE_EVENT,
                         ref_id: houseEvent.id,
                         from_location_type: LocationType.HOUSE,
-                        from_location_id: data.houseId,
+                        from_location_id: houseId,
                         to_location_type: null,
                         to_location_id: null,
                     },
