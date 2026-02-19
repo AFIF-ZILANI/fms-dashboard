@@ -18,27 +18,37 @@ async function fetchJson<T>(
   const isFormData = options.body instanceof FormData;
 
   const headers: HeadersInit = isFormData
-    ? options.headers || {} // Let browser set content-type for FormData
+    ? options.headers || {}
     : {
-        "Content-Type": "application/json",
-        ...(options.headers || {}),
-      };
-  console.log("[TEST] - [API URL]: ", server_URI + endpoint);
+      "Content-Type": "application/json",
+      ...(options.headers || {}),
+    };
+
   const res = await fetch(server_URI + endpoint, {
     ...options,
     headers,
   });
 
+  const contentType = res.headers.get("content-type") || "";
+  const isJson = contentType.includes("application/json");
+
+  const body = isJson ? await res.json() : await res.text();
+
   if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`Request failed: ${res.status} - ${text}`);
+    // if backend sends JSON {message: "..."}
+    if (isJson && body?.message) {
+      throw new Error(body.message);
+    }
+
+    throw new Error(`Request failed: ${res.status}`);
   }
 
-  // 204 No Content (e.g. DELETE)
+  // 204 No Content
   if (res.status === 204) return {} as T;
 
-  return res.json();
+  return body as T;
 }
+
 
 /* ------------------------- QUERY (GET) ------------------------- */
 
