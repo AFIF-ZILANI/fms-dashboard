@@ -132,6 +132,19 @@ model BatchHouseAllocation {
   @@index([to_house_id])
 }
 
+model BatchHouseBalance {
+  id       String @id @default(uuid())
+  batch_id String
+  house_id String
+  quantity Int
+
+  updated_at DateTime @updatedAt
+
+  @@unique([batch_id, house_id])
+  @@index([house_id])
+  @@index([batch_id])
+}
+
 model Profiles {
   id            String          @id @default(uuid())
   email         String?         @unique
@@ -275,7 +288,7 @@ model StockReservation {
   batch_id String?
   quantity Decimal  @db.Decimal(10, 3)
   date     DateTime
-  note     String
+  note     String?
 
   house      Houses   @relation(fields: [house_id], references: [id])
   batch      Batches? @relation(fields: [batch_id], references: [id])
@@ -286,10 +299,11 @@ model StockReservation {
 model Item {
   id                    String             @id @default(uuid())
   name                  String
+  normalized_key        String?
   category              ResourceCategories
   unit                  Units
   meta_data             Json
-  reorder_level         Decimal            @default(0) @db.Decimal(10, 3)
+  reorder_level         Decimal?           @db.Decimal(10, 3)
   preferred_reorder_qty Decimal?           @db.Decimal(10, 3)
   lead_time_days        Int?
   updated_at            DateTime           @updatedAt
@@ -300,8 +314,36 @@ model Item {
 
   purchaseItems        PurchaseItem[]
   batchFeedingPrograms BatchFeedingProgram[]
+  itemOrganizations    ItemOrganization[]
 
   @@index([name, category])
+}
+
+model Organization {
+  id             String   @id @default(uuid())
+  label_name     String // EXACT label text
+  normalized_key String // cleaned for searching
+  updated_at     DateTime @updatedAt
+  created_at     DateTime @default(now())
+
+  itemLinks ItemOrganization[]
+
+  @@unique([normalized_key])
+  @@index([normalized_key])
+}
+
+model ItemOrganization {
+  id String @id @default(uuid())
+
+  item_id         String
+  organization_id String
+
+  role OrganizationRole
+
+  item         Item         @relation(fields: [item_id], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organization_id], references: [id], onDelete: Cascade)
+
+  @@unique([item_id, organization_id, role])
 }
 
 model BatchFeedingProgram {
@@ -594,6 +636,12 @@ enum Units {
   BOTTLE
   MON
   TON
+  ML
+  L
+  G
+  PCS
+  VIAL
+  DOSE
   OTHER
 }
 
@@ -621,6 +669,7 @@ enum ResourceCategories {
   MEDICINE
   SUPPLEMENT
   BIOSECURITY
+  VACCINE
   CHICKS
   HUSK
   EQUIPMENT
@@ -788,4 +837,11 @@ enum AllocationReason {
   INITIAL // purchase → house
   TRANSFER // house → house
   ADJUSTMENT // correction (admin-only)
+}
+
+enum OrganizationRole {
+  MANUFACTURER
+  IMPORTER
+  MARKETER
+  DISTRIBUTOR
 }
