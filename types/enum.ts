@@ -14,3 +14,38 @@ export enum HouseEventUnitEnum {
     BAG = "BAG",
     LITER = "LITER",
 }
+
+export enum MedicineUnit {
+    ML = "ML",
+    L = "L",
+    G = "G",
+    KG = "KG",
+    PCS = "PCS",
+    VIAL = "VIAL",
+    DOSE = "DOSE",
+}
+
+export enum MedicineCategory {
+    MEDICINE = "MEDICINE",
+    SUPPLEMENT = "SUPPLEMENT",
+    VACCINE = "VACCINE",
+}
+
+export enum MedicineForm {
+    LIQUID = "LIQUID",
+    POWDER = "POWDER",
+    TABLET = "TABLET",
+}
+
+export enum MedicineRoute {
+    WATER = "WATER",
+    INJECTION = "INJECTION",
+    ORAL = "ORAL",
+}
+
+export enum StorageCondition {
+    ROOM = "ROOM",
+    REFRIGERATOR = "REFRIGERATOR",
+    FREEZER = "FREEZER",
+    OTHER = "OTHER",
+}

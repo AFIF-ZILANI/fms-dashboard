@@ -134,5 +134,10 @@ export type ActorSearchItem = {
 };
 
 export type GetHouses = {
-    houses: { id: string; label: string; runningBatch: string }[];
+    houses: { id: string; label: string; runningBatch: string; qty: number }[];
+};
+
+export type Organization = {
+    id: string;
+    labelName: string;
 };
