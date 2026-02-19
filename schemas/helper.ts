@@ -38,3 +38,13 @@ export const decimalOptional = z
             )
     )
     .optional();
+
+export const zodUUID = z.string().uuid("Invalid UUID");
+export const zodUUIDArray = z.array(zodUUID);
+export const zodUUIDOptional = z.string().uuid().optional();
+export const zodDate = z.coerce.date("Invalid date");
+
+export const uuidOptional = z.preprocess(
+    (val) => (val === "" ? undefined : val),
+    z.string().uuid().optional()
+);
