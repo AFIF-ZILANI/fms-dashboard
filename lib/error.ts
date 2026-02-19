@@ -14,9 +14,9 @@
  */
 export class AppError<E> extends Error {
     statusCode: number;
-    data: E;
+    data?: E;
 
-    constructor(message: string, statusCode: number = 500, data: E) {
+    constructor(message: string, statusCode: number = 500, data?: E) {
         super(message);
         this.statusCode = statusCode;
         this.data = data;
