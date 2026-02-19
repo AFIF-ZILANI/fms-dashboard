@@ -26,15 +26,7 @@ export const addBatchSchema = z.object({
     initChicksAvgWT: decimalNumber,
     // 2. Initial Quantity (Integer)
     initialQuantity: z
-        .number()
-        .refine(
-            (val) => Number.isInteger(val),
-            "Initial quantity must be a whole number (integer)."
-        )
-        .refine(
-            (val) => val > 0,
-            "Initial quantity must be greater than zero."
-        ),
+        .number().int().default(0),
 
     // 3. Breed (Enum)
     breed: BirdBreedsSchema.refine(
@@ -44,14 +36,20 @@ export const addBatchSchema = z.object({
         }
     ),
     date: zodDate,
+    feedId: zodUUID,
     suppliers: z
         .array(supplierSchema)
         .min(
             1,
             "The 'suppliers' array cannot be empty. At least one supplier is required."
         ),
-    quantityType: z.enum(["FULL", "PARTIAL"]),
 
+}).superRefine((data) => {
+    // console.log("Batch submitted:", data);
+    let initQ = 0;
+    data.suppliers.map((sup) => (initQ += sup.quantity));
+    data.initialQuantity = initQ;
+    // console.log("[data]: ", { ...data, initialQuantity: initQ });
 });
 
 
@@ -64,11 +62,16 @@ export const batchAllocationSchema = z.object({
         .number()
         .positive("Quantity must be positive")
         .int("Quantity must be an integer"),
-});
+})
+// .superRefine((data) => {
+//     console.log("submitted Data:", data);
+
+// });
 
 // Zod Type Inference (for type safety in the function body)
 // type ValidBatchData = z.infer<typeof BatchSchema>;
 
-export type BatchAllocationInput = z.infer<typeof batchAllocationSchema>;
+export type BatchAllocationInput = z.input<typeof batchAllocationSchema>;
+export type BatchAllocationOutput = z.output<typeof batchAllocationSchema>;
 export type AddBatchInput = z.input<typeof addBatchSchema>;
 export type AddBatchOutput = z.output<typeof addBatchSchema>;
