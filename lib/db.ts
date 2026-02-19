@@ -1,15 +1,20 @@
-import { Prisma } from "@/app/generated/prisma/client";
+import { AllocationReason, Prisma } from "@/app/generated/prisma/client";
 import { PrismaTx } from "@/types/db";
 
-type GetHouseBatchBalancesArgs = {
+type GetHouseBatchBalancesByLedgerReplayArgs = {
     houseId?: string;
     houseIds?: string[];
     occurredAt?: Date; // optional → defaults to now
 };
 
-export async function getHouseBatchBalances(
+type GetHouseBatchBalancesFastArgs = {
+    houseId?: string;
+    houseIds?: string[];
+};
+
+export async function getHouseBatchBalancesByLedgerReplay(
     tx: PrismaTx,
-    args: GetHouseBatchBalancesArgs
+    args: GetHouseBatchBalancesByLedgerReplayArgs
 ) {
     const { houseId, houseIds, occurredAt } = args;
 
@@ -65,7 +70,7 @@ export async function getHouseBatchBalances(
 }
 
 
-export async function assertHouseHasRunningBatch(
+export async function assertHouseHasRunningBatchByLedgerReplay(
     tx: PrismaTx,
     houseId: string,
     at: Date = new Date()
@@ -114,7 +119,7 @@ export async function assertHouseHasRunningBatch(
 }
 
 
-export async function assertBatchRunningInHouse(
+export async function assertBatchRunningInHouseByLedgerReplay(
     tx: PrismaTx,
     batchId: string,
     houseId: string,
@@ -152,7 +157,7 @@ export async function assertBatchRunningInHouse(
 
 
 
-export async function getAvailableQuantity(
+export async function getAvailableQuantityByLedgerReplay(
     tx: PrismaTx,
     batchId: string,
     houseId: string,
@@ -259,4 +264,271 @@ export async function assertBatchIdsValid(
     }
 
     return uniqueIds;
+}
+
+
+export async function getHouseBatchBalancesFast(
+    tx: PrismaTx,
+    args: GetHouseBatchBalancesFastArgs
+) {
+    const { houseId, houseIds } = args;
+
+    if (!houseId && (!houseIds || houseIds.length === 0)) {
+        throw new Error("houseId or houseIds must be provided");
+    }
+
+    // console.log("[HOUSE ID] => ", houseId);
+    // console.log("[HOUSE IDS] => ", houseIds);
+
+    return await tx.batchHouseBalance.findMany({
+        where: {
+            house_id: houseId
+                ? houseId
+                : { in: houseIds! },
+            quantity: { not: 0 },
+        },
+        select: {
+            batch_id: true,
+            house_id: true,
+            quantity: true,
+        },
+    });
+}
+
+export async function assertHouseHasRunningBatchFast(
+    tx: PrismaTx,
+    houseId: string
+) {
+    const result = await tx.batchHouseBalance.findMany({
+        where: {
+            house_id: houseId,
+            quantity: { gt: 0 },
+        },
+        select: {
+            batch_id: true,
+            quantity: true,
+        },
+    });
+
+    // Optional: enforce ONE running batch per house
+    if (result.length > 1) {
+        throw new Error(
+            `Data corruption: house ${houseId} has multiple running batches`
+        );
+    }
+
+    return result.length > 0 ? {
+        batch_id: result[0].batch_id,
+        qty: result[0].quantity,
+    } : null;
+}
+
+export async function assertHouseHasRunningBatchFastThrowError(
+    tx: PrismaTx,
+    houseId: string
+) {
+    const result = await tx.batchHouseBalance.findMany({
+        where: {
+            house_id: houseId,
+            quantity: { gt: 0 },
+        },
+        select: {
+            batch_id: true,
+            quantity: true,
+        },
+    });
+
+    console.log("[RESULT] => ", result);
+
+    if (result.length === 0) {
+        throw new Error(`House ${houseId} has no running batch`);
+    }
+
+    // Optional: enforce ONE running batch per house
+    if (result.length > 1) {
+        throw new Error(
+            `Data corruption: house ${houseId} has multiple running batches`
+        );
+    }
+
+    return {
+        batch_id: result[0].batch_id,
+        qty: result[0].quantity,
+    };
+}
+
+export async function assertBatchRunningInHouseFast(
+    tx: PrismaTx,
+    args: { houseId: string; batchId: string }
+) {
+    const { houseId, batchId } = args;
+    const row = await tx.batchHouseBalance.findUnique({
+        where: {
+            batch_id_house_id: {
+                batch_id: batchId,
+                house_id: houseId,
+            },
+        },
+        select: {
+            quantity: true,
+        },
+    });
+
+    const qty = row?.quantity ?? 0;
+
+    if (qty <= 0) {
+        throw new Error(
+            `Batch ${batchId} is not running in house ${houseId}`
+        );
+    }
+
+    return qty;
+}
+
+export async function getAvailableQuantityFast(
+    tx: PrismaTx,
+    args: { houseId: string; batchId: string }
+): Promise<number> {
+    const { houseId, batchId } = args;
+    const row = await tx.batchHouseBalance.findUnique({
+        where: {
+            batch_id_house_id: {
+                batch_id: batchId,
+                house_id: houseId,
+            },
+        },
+        select: {
+            quantity: true,
+        },
+    });
+
+    return row?.quantity ?? 0;
+}
+
+
+export async function applyBatchHouseBalanceDelta(
+    tx: PrismaTx,
+    args: {
+        batchId: string;
+        houseId: string;
+        deltaQty: number; // can be positive or negative
+    }
+) {
+    const { batchId, houseId, deltaQty } = args;
+
+    if (deltaQty === 0) return;
+
+    // Upsert first (ensures row exists)
+    const row = await tx.batchHouseBalance.upsert({
+        where: {
+            batch_id_house_id: {
+                batch_id: batchId,
+                house_id: houseId,
+            },
+        },
+        create: {
+            batch_id: batchId,
+            house_id: houseId,
+            quantity: deltaQty,
+        },
+        update: {
+            quantity: { increment: deltaQty },
+        },
+        select: {
+            id: true,
+            quantity: true,
+        },
+    });
+
+    // If balance becomes zero (or negative due to corruption), delete it
+    if (row.quantity <= 0) {
+        await tx.batchHouseBalance.delete({
+            where: { id: row.id },
+        });
+
+        if (row.quantity < 0) {
+            throw new Error(
+                `Data corruption: balance became negative for batch=${batchId}, house=${houseId}`
+            );
+        }
+    }
+}
+
+export async function createBatchHouseAllocationWithBalanceUpdate(
+    tx: PrismaTx,
+    args: {
+        batchId: string;
+        fromHouseId?: string | null;
+        toHouseId?: string | null;
+        quantity: number; // always positive
+        reason: AllocationReason;
+        occurredAt?: Date;
+    }
+) {
+    const {
+        batchId,
+        fromHouseId,
+        toHouseId,
+        quantity,
+        reason,
+        occurredAt,
+    } = args;
+
+    if (!fromHouseId && !toHouseId) {
+        throw new Error("fromHouseId or toHouseId must be provided");
+    }
+
+    if (fromHouseId && toHouseId && fromHouseId === toHouseId) {
+        throw new Error("fromHouseId and toHouseId cannot be the same");
+    }
+
+    if (quantity <= 0) {
+        throw new Error("quantity must be greater than 0");
+    }
+
+    if (reason === AllocationReason.INITIAL) {
+        if (!toHouseId) {
+            throw new Error("toHouseId must be provided for INITIAL allocation");
+        }
+        if (fromHouseId) {
+            throw new Error("fromHouseId must not be provided for INITIAL allocation");
+        }
+    }
+
+    if (reason === AllocationReason.TRANSFER) {
+        if (!fromHouseId || !toHouseId) {
+            throw new Error("fromHouseId and toHouseId must be provided for TRANSFER allocation");
+        }
+    }
+
+    // 1) create allocation event (ledger)
+    const allocation = await tx.batchHouseAllocation.create({
+        data: {
+            batch_id: batchId,
+            from_house_id: fromHouseId ?? null,
+            to_house_id: toHouseId ?? null,
+            quantity,
+            reason,
+            occurred_at: occurredAt ?? new Date(),
+        },
+    });
+
+    // 2) update balances
+    if (fromHouseId) {
+        await applyBatchHouseBalanceDelta(tx, {
+            batchId,
+            houseId: fromHouseId,
+            deltaQty: -quantity,
+        });
+    }
+
+    if (toHouseId) {
+        await applyBatchHouseBalanceDelta(tx, {
+            batchId,
+            houseId: toHouseId,
+            deltaQty: +quantity,
+        });
+    }
+
+    return allocation;
 }
