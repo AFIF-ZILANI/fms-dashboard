@@ -1,5 +1,6 @@
 import { errorResponse, response } from "@/lib/apiResponse";
 import { getBatchAgeInDays } from "@/lib/date-time";
+import { getHouseBatchBalancesFast } from "@/lib/db";
 import { throwError } from "@/lib/error";
 import prisma from "@/lib/prisma";
 import { GetHouses } from "@/types";
@@ -52,7 +53,6 @@ export async function GET() {
                     },
                 },
             });
-            console.log("[ALLOCATION] => ", allocation);
 
             if (!allocation.length) {
                 throwError({
@@ -62,12 +62,20 @@ export async function GET() {
                 });
             }
 
-            allocation.map((al) => {
+            const houseIds = allocation.map((i) => i.to_house_id).filter((i) => i !== null) as string[];
+            const balance = await getHouseBatchBalancesFast(tx, {
+                houseIds: houseIds,
+            });
+
+            allocation.map(async (al) => {
                 const h = al.to_house
                 if (!h) return;
+                const hasHouseQty = balance.find((b) => b.house_id === h.id)?.quantity || 0;
+                if (hasHouseQty <= 0) return;
                 data.houses.push({
                     id: h.id,
-                    label: `${h.name} - ${h.number} - ${h.type}`,
+                    qty: hasHouseQty,
+                    label: h.name,
                     runningBatch: `${al.batch.breed} - ${getBatchAgeInDays(al.batch.starting_date)} Days - ${al.batch.phase}`,
                 });
             });
