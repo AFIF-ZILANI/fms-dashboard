@@ -1,5 +1,6 @@
 import {
     LocationType,
+    RefType,
     StockDirection,
     StockReason,
 } from "@/app/generated/prisma/enums";
@@ -20,62 +21,78 @@ export async function POST(req: NextRequest) {
             await assertHouseIdsValid(tx, [houseId]);
             const batchHouse = await assertHouseHasRunningBatchFast(tx, houseId);
 
-            // console.log("[BATCH HOUSE DATA] => ", batchHouse);
-
-            const item = await prisma.$queryRaw<{ stock: number }[]>`
-      SELECT 
-        SUM(
-          CASE 
-            WHEN direction = 'IN' THEN quantity
-            WHEN direction = 'OUT' THEN -quantity
-          END
-        ) AS stock
-      FROM "StockLedger"
-      WHERE item_id = ${itemId};
-    `;
-
-            if (!item || item[0].stock < quantity) {
+            if (quantity <= 0) {
                 throwError({
-                    message: "this item is not able to consume at this time",
+                    message: "Quantity must be greater than zero",
                     statusCode: 400,
                 });
             }
 
+            // Validate warehouse stock only
+            const stockResult = await tx.$queryRaw<{ stock: number | null }[]>`
+    SELECT COALESCE(SUM(
+      CASE 
+        WHEN direction = 'IN' THEN quantity
+        WHEN direction = 'OUT' THEN -quantity
+      END
+    ), 0) AS stock
+    FROM "StockLedger"
+    WHERE item_id = ${itemId}
+      AND location_type = 'WAREHOUSE';
+  `;
+
+            const warehouseStock = Number(stockResult[0]?.stock ?? 0);
+
+            if (warehouseStock < quantity) {
+                throwError({
+                    message: "Insufficient warehouse stock for reservation",
+                    statusCode: 400,
+                });
+            }
+
+            // Create reservation (intent)
             const reservation = await tx.stockReservation.create({
                 data: {
-                    house: {
-                        connect: {
-                            id: houseId,
-                        },
-                    },
-                    batch: batchHouse?.batch_id ? { connect: { id: batchHouse.batch_id } } : undefined,
-                    quantity: quantity,
+                    house: { connect: { id: houseId } },
+                    batch: batchHouse?.batch_id
+                        ? { connect: { id: batchHouse.batch_id } }
+                        : undefined,
+                    item: { connect: { id: itemId } },
+                    quantity,
                     date: occurredAt!,
                     note: note?.trim() ?? null,
                 },
             });
 
-            if (!reservation) {
-                throwError({
-                    message: "Row creation faild in stock reservation table",
-                });
-            }
-
+            // Transfer OUT from warehouse
             await tx.stockLedger.create({
                 data: {
-                    item: {
-                        connect: {
-                            id: itemId,
-                        },
-                    },
-                    quantity: quantity,
-                    from_location_type: LocationType.WAREHOUSE,
-                    to_location_type: LocationType.HOUSE,
-                    to_location_id: houseId,
+                    item: { connect: { id: itemId } },
+                    quantity,
+                    location_type: LocationType.WAREHOUSE,
+                    location_id: null,
+                    direction: StockDirection.OUT,
                     reason: StockReason.TRANSFER,
-                    direction: StockDirection.IN,
                     occurred_at: occurredAt,
-                    idempotency_key: `${StockReason.TRANSFER}:${reservation.id}:${itemId}`,
+                    idempotency_key: `TRANSFER_OUT:${reservation.id}:${itemId}`,
+                    ref_id: reservation.id,
+                    ref_type: RefType.STOCK_RESERVATION,
+                },
+            });
+
+            // Transfer IN to house
+            await tx.stockLedger.create({
+                data: {
+                    item: { connect: { id: itemId } },
+                    quantity,
+                    location_type: LocationType.HOUSE,
+                    location_id: houseId,
+                    direction: StockDirection.IN,
+                    reason: StockReason.TRANSFER,
+                    occurred_at: occurredAt,
+                    idempotency_key: `TRANSFER_IN:${reservation.id}:${itemId}`,
+                    ref_id: reservation.id,
+                    ref_type: RefType.STOCK_RESERVATION,
                 },
             });
         });
