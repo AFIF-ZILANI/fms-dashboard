@@ -1,9 +1,13 @@
 "use client";
 
-import { RefreshCcw, Save } from "lucide-react";
+import { ChevronDown, RefreshCcw, Save } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { ResourceCategories, Units } from "@/app/generated/prisma/enums";
+import {
+    OrganizationRole,
+    ResourceCategories,
+    Units,
+} from "@/app/generated/prisma/enums";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -24,9 +28,17 @@ import {
 
 import { addStockItemSchema, AddStockItemSchema } from "@/schemas/item.schema";
 import { Spinner } from "@/components/ui/spinner";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { usePostData } from "@/lib/api-request";
 import { toast } from "sonner";
+import { OrganizationSelectAsync } from "@/components/org-search-or-create-select";
+import {
+    Collapsible,
+    CollapsibleContent,
+    CollapsibleTrigger,
+} from "@/components/ui/collapsible";
+import { Separator } from "@/components/ui/separator";
+import { Label } from "@/components/ui/label";
 
 type MetaRow = {
     key: string;
@@ -34,6 +46,7 @@ type MetaRow = {
 };
 
 export default function NewStockItemPage() {
+    const [resetCounter, setResetCounter] = useState(0);
     const [metaRows, setMetaRows] = useState<MetaRow[]>([
         { key: "", value: "" },
     ]);
@@ -43,6 +56,8 @@ export default function NewStockItemPage() {
         defaultValues: {
             isMetaDataAvailable: false,
             name: "",
+            unit: Units.KG,
+            category: ResourceCategories.FEED,
         },
     });
 
@@ -54,19 +69,34 @@ export default function NewStockItemPage() {
         error,
     } = usePostData("/create/stock/item");
 
+    const handleReset = useCallback(() => {
+        form.reset({
+            isMetaDataAvailable: false,
+            name: "",
+
+            reorderLevel: undefined,
+            manufacturerId: undefined,
+            importerId: undefined,
+            marketerId: undefined,
+            distributorId: undefined,
+        });
+
+        setResetCounter((prev) => prev + 1);
+        setMetaRows([{ key: "", value: "" }]);
+    }, [form]);
+
     /* ---------------- Effects ---------------- */
 
     useEffect(() => {
         if (isSuccess) {
             toast.success("Stock item created successfully");
-            form.reset();
-            setMetaRows([{ key: "", value: "" }]);
+            handleReset();
         }
 
         if (isError && error) {
             toast.error(error.message || "Failed to create item");
         }
-    }, [isSuccess, isError, error, form]);
+    }, [isSuccess, isError, error, handleReset]);
 
     /* ---------------- Metadata Helpers ---------------- */
 
@@ -91,34 +121,31 @@ export default function NewStockItemPage() {
         setMetaRows(copy);
     };
 
-    let isMetaDataAvailable: boolean;
-
-    const buildMetaData = () => {
+    const { metadata, isMetaDataAvailable } = useMemo(() => {
         const entries = metaRows.filter((r) => r.key.trim() && r.value.trim());
-
         const keys = entries.map((e) => e.key);
         const uniqueKeys = new Set(keys);
 
         if (keys.length !== uniqueKeys.size) {
             throw new Error("Duplicate metadata keys detected");
         }
-        if (keys.length) {
-            isMetaDataAvailable = true;
-        } else {
-            isMetaDataAvailable = false;
-        }
-        return Object.fromEntries(entries.map((r) => [r.key, r.value]));
-    };
+
+        const hasData = keys.length > 0;
+        const metadata = Object.fromEntries(
+            entries.map((r) => [r.key, r.value])
+        );
+
+        return { metadata, isMetaDataAvailable: hasData };
+    }, [metaRows]);
 
     /* ---------------- Submit ---------------- */
 
     const onSubmit = (values: AddStockItemSchema) => {
         try {
-            const metaData = buildMetaData();
             mutate({
                 ...values,
                 isMetaDataAvailable,
-                metaData,
+                metaData: metadata,
             });
         } catch (err: any) {
             toast.error(err.message);
@@ -145,147 +172,361 @@ export default function NewStockItemPage() {
                         onSubmit={form.handleSubmit(onSubmit)}
                         className="space-y-6"
                     >
-                        {/* Basic Info */}
-                        <FormField
-                            control={form.control}
-                            name="name"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Item Name</FormLabel>
-                                    <FormControl>
-                                        <Input
-                                            {...field}
-                                            placeholder="e.g. Tox Safe Plus"
-                                        />
-                                    </FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-                        <FormField
-                            name="reorderLevel"
-                            control={form.control}
-                            render={({ field }) => {
-                                return (
+                        <section className="space-y-4">
+                            {/* Basic Info */}
+                            <div>
+                                <div className="flex items-center gap-2">
+                                    <Label className="text-lg font-medium">
+                                        Basic Information
+                                    </Label>
+                                    <div className="flex-1">
+                                        <Separator className="w-full" />
+                                    </div>
+                                </div>
+                                <p className="text-xs text-muted-foreground">
+                                    Provide basic details about the item
+                                </p>
+                            </div>
+
+                            <FormField
+                                control={form.control}
+                                name="name"
+                                render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>Reorder Level</FormLabel>
+                                        <FormLabel>
+                                            Item Name{" "}
+                                            <span className="text-red-500">
+                                                *
+                                            </span>
+                                        </FormLabel>
                                         <FormControl>
                                             <Input
-                                                inputMode="decimal"
-                                                placeholder="e.g. 10.5"
-                                                value={
-                                                    typeof field.value ===
-                                                        "string" ||
-                                                    typeof field.value ===
-                                                        "number"
-                                                        ? field.value
-                                                        : ""
-                                                }
-                                                onChange={(e) => {
-                                                    let v = e.target.value;
-
-                                                    if (!/^\d*\.?\d*$/.test(v))
-                                                        return;
-
-                                                    if (/^0\d+/.test(v)) {
-                                                        v = v.replace(
-                                                            /^0+/,
-                                                            ""
-                                                        );
-                                                    }
-
-                                                    if (v.startsWith(".")) {
-                                                        v = "0" + v;
-                                                    }
-
-                                                    field.onChange(v);
-                                                }}
+                                                {...field}
+                                                placeholder="e.g. Tox Safe Plus"
                                             />
                                         </FormControl>
                                         <FormMessage />
                                     </FormItem>
-                                );
-                            }}
-                        />
-
-                        <div className="grid gap-4 md:grid-cols-10">
-                            <div className="col-span-7">
-                                <FormField
-                                    control={form.control}
-                                    name="category"
-                                    render={({ field }) => (
+                                )}
+                            />
+                            <FormField
+                                name="reorderLevel"
+                                control={form.control}
+                                render={({ field }) => {
+                                    return (
                                         <FormItem>
-                                            <FormLabel>Category</FormLabel>
-                                            <Select
-                                                value={field.value}
-                                                onValueChange={field.onChange}
-                                            >
-                                                <FormControl>
+                                            <FormLabel>
+                                                Reorder Level{" "}
+                                                <span className="text-xs text-muted-foreground">
+                                                    (optional)
+                                                </span>
+                                            </FormLabel>
+                                            <FormControl>
+                                                <Input
+                                                    inputMode="decimal"
+                                                    placeholder="e.g. 10.5"
+                                                    value={
+                                                        typeof field.value ===
+                                                            "string" ||
+                                                        typeof field.value ===
+                                                            "number"
+                                                            ? field.value
+                                                            : ""
+                                                    }
+                                                    onChange={(e) => {
+                                                        let v = e.target.value;
+
+                                                        if (
+                                                            !/^\d*\.?\d*$/.test(
+                                                                v
+                                                            )
+                                                        )
+                                                            return;
+
+                                                        if (/^0\d+/.test(v)) {
+                                                            v = v.replace(
+                                                                /^0+/,
+                                                                ""
+                                                            );
+                                                        }
+
+                                                        if (v.startsWith(".")) {
+                                                            v = "0" + v;
+                                                        }
+
+                                                        field.onChange(v);
+                                                    }}
+                                                />
+                                            </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    );
+                                }}
+                            />
+                            <div className="grid gap-4 md:grid-cols-10">
+                                <div className="col-span-7">
+                                    <FormField
+                                        control={form.control}
+                                        name="category"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel>
+                                                    Category{" "}
+                                                    <span className="text-red-500">
+                                                        *
+                                                    </span>
+                                                </FormLabel>
+                                                <Select
+                                                    value={field.value}
+                                                    onValueChange={
+                                                        field.onChange
+                                                    }
+                                                >
+                                                    {/* <FormControl> */}
                                                     <SelectTrigger className="w-full">
                                                         <SelectValue placeholder="Select category" />
                                                     </SelectTrigger>
-                                                </FormControl>
-                                                <SelectContent>
-                                                    {Object.values(
-                                                        ResourceCategories
-                                                    ).map((val) => (
-                                                        <SelectItem
-                                                            key={val}
-                                                            value={val}
-                                                        >
-                                                            {val}
-                                                        </SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
-                            </div>
+                                                    {/* </FormControl> */}
+                                                    <SelectContent>
+                                                        {Object.values(
+                                                            ResourceCategories
+                                                        ).map((category) => (
+                                                            <SelectItem
+                                                                key={category}
+                                                                value={category}
+                                                            >
+                                                                {category}
+                                                            </SelectItem>
+                                                        ))}
+                                                    </SelectContent>
+                                                </Select>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+                                </div>
 
-                            <div className="col-span-3">
-                                <FormField
-                                    control={form.control}
-                                    name="unit"
-                                    render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>Unit</FormLabel>
-                                            <Select
-                                                value={field.value}
-                                                onValueChange={field.onChange}
-                                            >
-                                                <FormControl>
-                                                    <SelectTrigger className="w-full">
-                                                        <SelectValue placeholder="Select unit" />
-                                                    </SelectTrigger>
-                                                </FormControl>
-                                                <SelectContent>
-                                                    {Object.values(Units).map(
-                                                        (val) => (
+                                <div className="col-span-3">
+                                    <FormField
+                                        control={form.control}
+                                        name="unit"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel>
+                                                    Unit{" "}
+                                                    <span className="text-red-500">
+                                                        *
+                                                    </span>
+                                                </FormLabel>
+                                                <Select
+                                                    value={field.value}
+                                                    onValueChange={
+                                                        field.onChange
+                                                    }
+                                                >
+                                                    <FormControl>
+                                                        <SelectTrigger className="w-full">
+                                                            <SelectValue placeholder="Select unit" />
+                                                        </SelectTrigger>
+                                                    </FormControl>
+                                                    <SelectContent>
+                                                        {Object.values(
+                                                            Units
+                                                        ).map((val) => (
                                                             <SelectItem
                                                                 key={val}
                                                                 value={val}
                                                             >
                                                                 {val}
                                                             </SelectItem>
-                                                        )
-                                                    )}
-                                                </SelectContent>
-                                            </Select>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
+                                                        ))}
+                                                    </SelectContent>
+                                                </Select>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+                                </div>
                             </div>
-                        </div>
+                        </section>
+                        {/* ---------------- Manufacturer ---------------- */}
+                        <section className="space-y-4">
+                            <div>
+                                <div className="flex items-center gap-2">
+                                    <Label className="text-lg font-medium">
+                                        Manufacturer Information
+                                    </Label>
+                                    <div className="flex-1">
+                                        <Separator className="w-full" />
+                                    </div>
+                                </div>
+                                <p className="text-xs text-muted-foreground">
+                                    Specify the company or brand that
+                                    manufactures this product
+                                </p>
+                            </div>
 
+                            <FormField
+                                control={form.control}
+                                name="manufacturerId"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>
+                                            Manufacturer{" "}
+                                            <span className="text-xs text-muted-foreground">
+                                                (optional)
+                                            </span>
+                                        </FormLabel>
+                                        <FormControl>
+                                            <OrganizationSelectAsync
+                                                onChange={field.onChange}
+                                                type={
+                                                    OrganizationRole.MANUFACTURER
+                                                }
+                                                value={field.value}
+                                                allowCreate
+                                                resetKey={resetCounter}
+                                            />
+                                        </FormControl>
+                                    </FormItem>
+                                )}
+                            />
+
+                            <Collapsible
+                                defaultOpen={
+                                    !!form.watch("importerId") ||
+                                    !!form.watch("marketerId") ||
+                                    !!form.watch("distributorId")
+                                }
+                            >
+                                <CollapsibleTrigger asChild>
+                                    <button
+                                        type="button"
+                                        className="flex w-full items-center justify-between rounded-lg border bg-muted/40 px-4 py-3 text-left transition hover:bg-muted"
+                                    >
+                                        <div className="flex flex-col">
+                                            <span className="text-sm font-semibold">
+                                                Other Information
+                                            </span>
+                                            <span className="text-xs text-muted-foreground">
+                                                Importer, marketer, distributor
+                                                (optional)
+                                            </span>
+                                        </div>
+
+                                        <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform data-[state=open]:rotate-180" />
+                                    </button>
+                                </CollapsibleTrigger>
+
+                                <CollapsibleContent className="mt-4">
+                                    <div className="grid grid-cols-1 gap-4 rounded-lg border bg-background p-4">
+                                        <FormField
+                                            control={form.control}
+                                            name="importerId"
+                                            render={({ field }) => (
+                                                <FormItem>
+                                                    <FormLabel className="flex items-center gap-2">
+                                                        Imported By
+                                                        <span className="text-xs text-muted-foreground">
+                                                            (Optional)
+                                                        </span>
+                                                    </FormLabel>
+                                                    <FormControl>
+                                                        <OrganizationSelectAsync
+                                                            onChange={
+                                                                field.onChange
+                                                            }
+                                                            type={
+                                                                OrganizationRole.IMPORTER
+                                                            }
+                                                            value={field.value}
+                                                            allowCreate
+                                                            resetKey={
+                                                                resetCounter
+                                                            }
+                                                        />
+                                                    </FormControl>
+                                                </FormItem>
+                                            )}
+                                        />
+
+                                        <FormField
+                                            control={form.control}
+                                            name="marketerId"
+                                            render={({ field }) => (
+                                                <FormItem>
+                                                    <FormLabel className="flex items-center gap-2">
+                                                        Marketed By
+                                                        <span className="text-xs text-muted-foreground">
+                                                            (Optional)
+                                                        </span>
+                                                    </FormLabel>
+                                                    <FormControl>
+                                                        <OrganizationSelectAsync
+                                                            onChange={
+                                                                field.onChange
+                                                            }
+                                                            type={
+                                                                OrganizationRole.MARKETER
+                                                            }
+                                                            value={field.value}
+                                                            allowCreate
+                                                            resetKey={
+                                                                resetCounter
+                                                            }
+                                                        />
+                                                    </FormControl>
+                                                </FormItem>
+                                            )}
+                                        />
+
+                                        <FormField
+                                            control={form.control}
+                                            name="distributorId"
+                                            render={({ field }) => (
+                                                <FormItem>
+                                                    <FormLabel className="flex items-center gap-2">
+                                                        Distributed By
+                                                        <span className="text-xs text-muted-foreground">
+                                                            (Optional)
+                                                        </span>
+                                                    </FormLabel>
+                                                    <FormControl>
+                                                        <OrganizationSelectAsync
+                                                            onChange={
+                                                                field.onChange
+                                                            }
+                                                            type={
+                                                                OrganizationRole.DISTRIBUTOR
+                                                            }
+                                                            value={field.value}
+                                                            allowCreate
+                                                            resetKey={
+                                                                resetCounter
+                                                            }
+                                                        />
+                                                    </FormControl>
+                                                </FormItem>
+                                            )}
+                                        />
+                                    </div>
+                                </CollapsibleContent>
+                            </Collapsible>
+                        </section>
                         {/* Metadata Section */}
                         <div className="space-y-2">
                             <div>
-                                <h2 className="text-sm font-medium">
-                                    Metadata
-                                </h2>
+                                <div className="flex items-center gap-2">
+                                    <Label className="text-lg font-medium">
+                                        Metadata{" "}
+                                        <span className="text-xs text-muted-foreground">
+                                            (optional)
+                                        </span>
+                                    </Label>
+                                    <div className="flex-1">
+                                        <Separator className="w-full" />
+                                    </div>
+                                </div>
                                 <p className="text-xs text-muted-foreground">
                                     Optional key-value pairs, similar to
                                     environment variables. Useful for medicine,
@@ -352,16 +593,12 @@ export default function NewStockItemPage() {
                                 </div>
                             </div>
                         </div>
-
                         {/* Actions */}
                         <div className="flex justify-end gap-3 pt-4">
                             <Button
                                 type="button"
                                 variant="outline"
-                                onClick={() => {
-                                    form.reset();
-                                    setMetaRows([{ key: "", value: "" }]);
-                                }}
+                                onClick={() => handleReset}
                             >
                                 <RefreshCcw className="mr-2 h-4 w-4" />
                                 Reset
