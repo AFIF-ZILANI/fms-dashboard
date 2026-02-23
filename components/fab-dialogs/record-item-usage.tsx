@@ -10,7 +10,7 @@ import {
     DialogTrigger,
 } from "../ui/dialog";
 import { Button } from "../ui/button";
-import { Plus, Save } from "lucide-react";
+import { Plus, RefreshCcw, Save } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useGetData, usePostData } from "@/lib/api-request";
@@ -33,13 +33,14 @@ import {
 import { Input } from "../ui/input";
 import { toast } from "sonner";
 import { Spinner } from "../ui/spinner";
-import { GetHouses } from "@/types";
+import { GetHouses, ItemInventoryForUse } from "@/types";
 import {
     RecordItemUsageInput,
     recordItemUsageSchema,
 } from "@/schemas/item-usage.schema";
-import { Item } from "@/types/purchase";
 import { Badge } from "../ui/badge";
+import { TooltipCreator } from "@/lib/strings";
+import { formatQty } from "@/lib/utils";
 
 interface HelperResponse {
     data: GetHouses;
@@ -47,7 +48,6 @@ interface HelperResponse {
 
 export function RecordItemUsage() {
     const [dialogOpen, setDialogOpen] = useState(false);
-    const [currentStock, setCurrentStock] = useState<number>(0);
     const form = useForm<RecordItemUsageInput>({
         resolver: zodResolver(recordItemUsageSchema),
         defaultValues: {
@@ -67,45 +67,64 @@ export function RecordItemUsage() {
         error,
     } = usePostData("/create/stock/item/consumption");
     const { data: itemsListRes } = useGetData<{
-        data: Item[];
-    }>("/get/stock/items/all");
+        data: ItemInventoryForUse[];
+    }>("/get/stock/items/to-use");
 
     const houses = helperData?.data.houses;
     const itemsList = itemsListRes?.data || [];
-    console.log(itemsListRes);
 
-    const selectedHouseId = form.watch("houseId");
-    const selectedItem = form.watch("itemId");
-    const consumeQuantity = form.watch("quantity");
-    const selectedItemDetails = itemsList.find((i) => i.id === selectedItem);
+    function handleFormReset() {
+        form.reset({
+            houseId: "",
+            itemId: "",
+            quantity: "",
+            occurredAt: new Date(),
+        });
+    }
 
-    // Update current stock when item is selected
-    useEffect(() => {
-        if (selectedItem) {
-            fetch(`/api/get/stock/items/one?id=${selectedItem}`).then(
-                async (res) => {
-                    const response = await res.json();
-                    setCurrentStock(response.data ?? 0);
-                }
-            );
-        }
-    }, [selectedItem]);
+    const {
+        itemId: selectedItem,
+        houseId: selectedHouse,
+        quantity: consumeQuantity,
+    } = form.watch();
 
-    // Calculate remaining stock
-    const remainingStock =
-        currentStock - (parseFloat(consumeQuantity as string) || 0);
+    const selectedItemDetails = itemsList.find(
+        (i) => i.item_id === selectedItem
+    );
+
+    const selectedHouseReservedStockQuantity = Number(
+        selectedItemDetails?.house_reserved_stocks.find(
+            (r) => r.houseId === selectedHouse
+        )?.quantity ?? 0
+    );
+
+    const usedQty = parseFloat((consumeQuantity as string) || "0");
+
+    const warehouseStock = Number(selectedItemDetails?.warehouse_stock ?? 0);
+    const reservedStock = selectedHouseReservedStockQuantity;
+
+    const usedFromReserved = Math.min(usedQty, reservedStock);
+    const remainingAfterReserved = usedQty - usedFromReserved;
+
+    const usedFromWarehouse = Math.max(
+        0,
+        Math.min(remainingAfterReserved, warehouseStock)
+    );
+
+    const totalAvailable = reservedStock + warehouseStock;
+    const remainingTotalStock = totalAvailable - usedQty;
+
     /* ---------------- Effects ---------------- */
 
     useEffect(() => {
         if (isSuccess) {
             toast.success("Item usage recorded successfully!");
-            form.reset();
-            setCurrentStock(0);
+            handleFormReset();
             // setDialogOpen(false);
         }
 
         if (isError && error) {
-            toast.error(error.message || "Failed to save house event");
+            toast.error(error.message || "Failed to record item usage");
         }
 
         // console.log()
@@ -155,14 +174,16 @@ export function RecordItemUsage() {
                                 name="houseId"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>House</FormLabel>
+                                        <FormLabel>Shed</FormLabel>
                                         <Select
-                                            value={field.value}
-                                            onValueChange={field.onChange}
+                                            value={field.value ?? ""}
+                                            onValueChange={(val) =>
+                                                field.onChange(val || undefined)
+                                            }
                                         >
                                             <FormControl>
                                                 <SelectTrigger className="w-full">
-                                                    <SelectValue placeholder="Select house" />
+                                                    <SelectValue placeholder="Select shed" />
                                                 </SelectTrigger>
                                             </FormControl>
                                             <SelectContent>
@@ -192,8 +213,10 @@ export function RecordItemUsage() {
                                             <FormControl>
                                                 <Select
                                                     value={field.value || ""}
-                                                    onValueChange={
-                                                        field.onChange
+                                                    onValueChange={(val) =>
+                                                        field.onChange(
+                                                            val || undefined
+                                                        )
                                                     }
                                                 >
                                                     <SelectTrigger className="w-full">
@@ -204,10 +227,10 @@ export function RecordItemUsage() {
                                                             (item) => (
                                                                 <SelectItem
                                                                     key={
-                                                                        item.id
+                                                                        item.item_id
                                                                     }
                                                                     value={
-                                                                        item.id
+                                                                        item.item_id
                                                                     }
                                                                 >
                                                                     <span className="font-semibold">
@@ -215,11 +238,17 @@ export function RecordItemUsage() {
                                                                             item.name
                                                                         }
                                                                     </span>{" "}
-                                                                    -{" "}
+                                                                    -
                                                                     <span>
-                                                                        {item.company ||
-                                                                            "Unknown"}
-                                                                    </span>
+                                                                        {TooltipCreator(
+                                                                            {
+                                                                                text:
+                                                                                    item.company ??
+                                                                                    "Unknown Company",
+                                                                                size: 24,
+                                                                            }
+                                                                        )}
+                                                                    </span>{" "}
                                                                     -
                                                                     <Badge
                                                                         variant="outline"
@@ -228,7 +257,7 @@ export function RecordItemUsage() {
                                                                         {
                                                                             item.category
                                                                         }
-                                                                    </Badge>{" "}
+                                                                    </Badge>
                                                                 </SelectItem>
                                                             )
                                                         )}
@@ -240,23 +269,39 @@ export function RecordItemUsage() {
                                 }}
                             />
 
-                            {/* Stock Available Display */}
-                            {selectedItemDetails && (
-                                <div className="bg-muted/50 border border-border rounded-md p-3">
-                                    <div className="flex items-center justify-between">
-                                        <span className="text-sm font-medium text-foreground">
-                                            Available Stock
-                                        </span>
-                                        <span className="text-lg font-semibold text-foreground">
-                                            {currentStock}{" "}
-                                            <span className="text-sm text-muted-foreground">
-                                                {selectedItemDetails.unit ||
-                                                    "Units"}
-                                            </span>
-                                        </span>
-                                    </div>
+                            <div className="bg-muted/50 border border-border rounded-md p-3 space-y-2">
+                                <div className="flex justify-between">
+                                    <span className="text-sm font-medium">
+                                        Reserved (Priority)
+                                    </span>
+                                    <span className="font-semibold">
+                                        {formatQty(reservedStock)}{" "}
+                                        {selectedItemDetails?.unit}
+                                    </span>
                                 </div>
-                            )}
+
+                                <div className="flex justify-between">
+                                    <span className="text-sm font-medium">
+                                        Warehouse (Secondary)
+                                    </span>
+                                    <span className="font-semibold">
+                                        {formatQty(warehouseStock)}{" "}
+                                        {selectedItemDetails?.unit}
+                                    </span>
+                                </div>
+
+                                <div className="flex justify-between border-t pt-2">
+                                    <span className="text-sm font-medium">
+                                        Total Available
+                                    </span>
+                                    <span className="font-bold">
+                                        {formatQty(
+                                            reservedStock + warehouseStock
+                                        )}{" "}
+                                        {selectedItemDetails?.unit}
+                                    </span>
+                                </div>
+                            </div>
 
                             <div className="grid grid-cols-7 gap-4">
                                 <div className={`col-span-4`}>
@@ -348,39 +393,74 @@ export function RecordItemUsage() {
                                     />
                                 </div>
                             </div>
-                            {/* Remaining Stock Display */}
                             {selectedItemDetails &&
                                 typeof consumeQuantity === "string" && (
                                     <div
-                                        className={`border rounded-md p-3 ${
-                                            remainingStock < 0
+                                        className={`border rounded-md p-4 space-y-3 ${
+                                            remainingTotalStock < 0
                                                 ? "bg-red-50 border-red-300"
-                                                : "bg-green-50 border-green-300"
+                                                : "bg-blue-50 border-blue-300"
                                         }`}
                                     >
-                                        <div className="flex items-center justify-between">
-                                            <span className="text-sm font-medium text-foreground">
-                                                Remaining Stock
+                                        <div className="text-sm font-semibold text-foreground">
+                                            Stock Allocation Breakdown
+                                        </div>
+
+                                        {/* Reserved Usage */}
+                                        {reservedStock > 0 && (
+                                            <div className="flex justify-between text-sm">
+                                                <span>Used from Reserved</span>
+                                                <span className="font-medium">
+                                                    {formatQty(
+                                                        usedFromReserved
+                                                    )}{" "}
+                                                    {selectedItemDetails.unit}
+                                                </span>
+                                            </div>
+                                        )}
+
+                                        {/* Warehouse Usage */}
+                                        {usedFromWarehouse > 0 && (
+                                            <div className="flex justify-between text-sm">
+                                                <span>Used from Warehouse</span>
+                                                <span className="font-medium">
+                                                    {formatQty(
+                                                        usedFromWarehouse
+                                                    )}{" "}
+                                                    {selectedItemDetails.unit}
+                                                </span>
+                                            </div>
+                                        )}
+
+                                        <div className="border-t pt-2 flex justify-between text-sm">
+                                            <span>
+                                                Total Remaining After Usage
                                             </span>
                                             <span
-                                                className={`text-lg font-bold ${
-                                                    remainingStock < 0
+                                                className={`font-bold ${
+                                                    remainingTotalStock < 0
                                                         ? "text-red-600"
                                                         : "text-green-600"
                                                 }`}
                                             >
-                                                {remainingStock.toFixed(2)}{" "}
-                                                <span className="text-sm text-muted-foreground font-normal">
-                                                    {selectedItemDetails.unit ||
-                                                        "Units"}
-                                                </span>
+                                                {formatQty(remainingTotalStock)}{" "}
+                                                {selectedItemDetails.unit}
                                             </span>
                                         </div>
-                                        {remainingStock < 0 && (
-                                            <p className="text-xs text-red-600 mt-2 font-medium">
-                                                ⚠️ Insufficient stock -
-                                                consumption exceeds available
-                                                quantity
+
+                                        {reservedStock > 0 && (
+                                            <p className="text-xs text-muted-foreground">
+                                                Reserved stock is consumed
+                                                first. If usage exceeds reserved
+                                                quantity, remaining amount is
+                                                deducted from warehouse stock.
+                                            </p>
+                                        )}
+
+                                        {remainingTotalStock < 0 && (
+                                            <p className="text-xs text-red-600 font-medium">
+                                                ⚠️ Insufficient total stock.
+                                                Reduce usage quantity.
                                             </p>
                                         )}
                                     </div>
@@ -389,22 +469,21 @@ export function RecordItemUsage() {
 
                         <DialogFooter className="grid grid-cols-2 gap-4 mt-4 md:mt-6">
                             {/* Form Reset */}
-                            {/* <Button
+                            <Button
                                 variant={"outline"}
-                                onClick={() => {
-                                    form.reset();
-                                    setCurrentStock(0);
-                                }}
+                                onClick={handleFormReset}
                                 className="cursor-pointer"
                                 type="button"
                             >
                                 <RefreshCcw />
                                 Reset
-                            </Button> */}
+                            </Button>
                             {/* Submit */}
                             <Button
                                 type="submit"
-                                disabled={submitIsPending || remainingStock < 0}
+                                disabled={
+                                    submitIsPending || remainingTotalStock < 0
+                                }
                                 className="cursor-pointer"
                             >
                                 {submitIsPending ? <Spinner /> : <Save />}
