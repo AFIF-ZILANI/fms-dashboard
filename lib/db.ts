@@ -532,3 +532,125 @@ export async function createBatchHouseAllocationWithBalanceUpdate(
 
     return allocation;
 }
+
+
+export async function getItemsCurrentStock(
+    tx: PrismaTx,
+    args: {
+        itemIds: string[]
+    }
+) {
+    const { itemIds } = args;
+    if (!itemIds.length) return [];
+
+    return tx.$queryRaw<{
+        item_id: string;
+        current_stock: Prisma.Decimal;
+    }[]>`
+    SELECT 
+      sl.item_id,
+      COALESCE(
+        SUM(
+          CASE 
+            WHEN sl.direction = 'IN' THEN sl.quantity
+            WHEN sl.direction = 'OUT' THEN -sl.quantity
+          END
+        ), 0
+      ) AS current_stock
+    FROM "StockLedger" sl
+    WHERE sl.item_id IN (${Prisma.join(itemIds)})
+    GROUP BY sl.item_id
+  `;
+}
+
+type ItemReservationRow = {
+    item_id: string;
+    alive_reserved_qty: Prisma.Decimal;
+};
+
+export async function getItemsAliveReservation(
+    tx: PrismaTx,
+    args: {
+        itemIds: string[]
+    }
+): Promise<ItemReservationRow[]> {
+    const { itemIds } = args;
+    if (!itemIds.length) return [];
+
+    return tx.$queryRaw<ItemReservationRow[]>`
+    WITH reserved AS (
+      SELECT 
+        sr.item_id,
+        SUM(sr.quantity) AS total_reserved
+      FROM "StockReservation" sr
+      WHERE sr.item_id IN (${Prisma.join(itemIds)})
+      GROUP BY sr.item_id
+    ),
+    consumed AS (
+      SELECT 
+        sl.item_id,
+        SUM(sl.quantity) AS total_consumed
+      FROM "StockLedger" sl
+      WHERE 
+        sl.item_id IN (${Prisma.join(itemIds)})
+        AND sl.reason = 'CONSUMPTION'
+        AND sl.direction = 'OUT'
+        AND sl.ref_type = 'STOCK_RESERVATION'
+      GROUP BY sl.item_id
+    )
+    SELECT 
+      i.id AS item_id,
+      COALESCE(r.total_reserved, 0) 
+      - COALESCE(c.total_consumed, 0) 
+      AS alive_reserved_qty
+    FROM "Item" i
+    LEFT JOIN reserved r ON r.item_id = i.id
+    LEFT JOIN consumed c ON c.item_id = i.id
+    WHERE i.id IN (${Prisma.join(itemIds)})
+  `;
+}
+export async function getHouseItemReservationBalance(
+    tx: PrismaTx,
+    args: {
+        houseId: string;
+        itemIds: string[];
+    }
+): Promise<ItemReservationRow[]> {
+    const { houseId, itemIds } = args;
+    if (!itemIds.length) return [];
+
+    return tx.$queryRaw<ItemReservationRow[]>`
+    WITH reserved AS (
+      SELECT 
+        sr.item_id,
+        SUM(sr.quantity) AS total_reserved
+      FROM "StockReservation" sr
+      WHERE sr.house_id = ${houseId}
+        AND sr.item_id IN (${Prisma.join(itemIds)})
+      GROUP BY sr.item_id
+    ),
+    consumed AS (
+      SELECT 
+        sl.item_id,
+        SUM(sl.quantity) AS total_consumed
+      FROM "StockLedger" sl
+      WHERE 
+        sl.location_type = 'HOUSE'
+        AND sl.location_id = ${houseId}
+        AND sl.item_id IN (${Prisma.join(itemIds)})
+        AND sl.reason = 'CONSUMPTION'
+        AND sl.direction = 'OUT'
+        AND sl.ref_type = 'STOCK_RESERVATION'
+      GROUP BY sl.item_id
+    )
+    SELECT 
+      i.id AS item_id,
+      COALESCE(r.total_reserved, 0)
+      - COALESCE(c.total_consumed, 0)
+      AS alive_reserved_qty
+    FROM "Item" i
+    LEFT JOIN reserved r ON r.item_id = i.id
+    LEFT JOIN consumed c ON c.item_id = i.id
+    WHERE i.id IN (${Prisma.join(itemIds)});
+  `;
+}
