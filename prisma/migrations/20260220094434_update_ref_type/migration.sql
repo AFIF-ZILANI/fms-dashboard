@@ -1,0 +1,2 @@
+-- AlterEnum
+ALTER TYPE "RefType" ADD VALUE 'STOCK_RESERVATION';

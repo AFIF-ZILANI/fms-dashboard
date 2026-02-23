@@ -243,12 +243,8 @@ model StockLedger {
 
   quantity Decimal @db.Decimal(10, 3)
 
-  // Movement semantics
-  from_location_type LocationType?
-  from_location_id   String?
-
-  to_location_type LocationType?
-  to_location_id   String?
+  location_type LocationType?
+  location_id   String?
 
   reason      StockReason
   occurred_at DateTime    @default(now())
@@ -257,14 +253,13 @@ model StockLedger {
   direction StockDirection
 
   // tracing & safety
-  ref_type        RefType?
-  ref_id          String?
+  ref_type        RefType
+  ref_id          String
   idempotency_key String
 
   @@unique([idempotency_key])
   @@index([item_id, occurred_at])
-  @@index([from_location_type, from_location_id])
-  @@index([to_location_type, to_location_id])
+  @@index([location_type, location_id])
   @@index([ref_type, ref_id])
 }
 
@@ -273,9 +268,11 @@ model Consumption {
   house_id String
   batch_id String?
   quantity Decimal  @db.Decimal(10, 3)
+  item_id  String
   date     DateTime
   note     String?
 
+  item       Item     @relation(fields: [item_id], references: [id])
   house      Houses   @relation(fields: [house_id], references: [id])
   batch      Batches? @relation(fields: [batch_id], references: [id])
   created_at DateTime @default(now())
@@ -286,14 +283,20 @@ model StockReservation {
   id       String   @id @default(uuid())
   house_id String
   batch_id String?
+  item_id  String
   quantity Decimal  @db.Decimal(10, 3)
   date     DateTime
   note     String?
 
   house      Houses   @relation(fields: [house_id], references: [id])
+  item       Item     @relation(fields: [item_id], references: [id])
   batch      Batches? @relation(fields: [batch_id], references: [id])
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
+
+  @@index([item_id])
+  @@index([house_id])
+  @@index([batch_id])
 }
 
 model Item {
@@ -315,6 +318,8 @@ model Item {
   purchaseItems        PurchaseItem[]
   batchFeedingPrograms BatchFeedingProgram[]
   itemOrganizations    ItemOrganization[]
+  stockReservations    StockReservation[]
+  consumptions         Consumption[]
 
   @@index([name, category])
 }
@@ -759,6 +764,8 @@ enum ExpenseCategory {
 
 enum RefType {
   HOUSE_EVENT
+  STOCK_RESERVATION
+  EXISTING_STOCK
   CONSUMPTION
   SALE
   PURCHASE
@@ -810,7 +817,6 @@ enum LocationType {
   HOUSE
   CUSTOMER
   DISPOSAL
-  SUPPLIER
 }
 
 enum StockReason {
