@@ -61,7 +61,7 @@ export function ActorSearchAsync({ onSelect, type }: ActorSearchAsyncProps) {
         }, 300);
 
         return () => clearTimeout(timeout);
-    }, [query]);
+    }, [query, type]);
 
     console.log(items);
 
