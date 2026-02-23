@@ -1,10 +1,11 @@
 import {
     LocationType,
+    RefType,
     StockDirection,
     StockReason,
 } from "@/app/generated/prisma/enums";
 import { errorResponse, response } from "@/lib/apiResponse";
-import { assertHouseHasRunningBatch, assertHouseIdsValid } from "@/lib/db";
+import { assertHouseHasRunningBatchFast, assertHouseIdsValid, getHouseItemReservationBalance } from "@/lib/db";
 import { throwError } from "@/lib/error";
 import prisma from "@/lib/prisma";
 import { recordItemUsageSchema } from "@/schemas/item-usage.schema";
@@ -17,64 +18,91 @@ export async function POST(req: NextRequest) {
 
         await prisma.$transaction(async (tx) => {
             await assertHouseIdsValid(tx, [houseId]);
-            const batchHouse = await assertHouseHasRunningBatch(tx, houseId, occurredAt);
+            const batchHouse = await assertHouseHasRunningBatchFast(tx, houseId);
 
-            console.log("[BATCH HOUSE DATA] => ", batchHouse);
+            const reserved = await getHouseItemReservationBalance(tx, {
+                houseId,
+                itemIds: [itemId],
+            });
 
-            const item = await prisma.$queryRaw<{ stock: number }[]>`
-      SELECT 
-        SUM(
-          CASE 
-            WHEN direction = 'IN' THEN quantity
-            WHEN direction = 'OUT' THEN -quantity
-          END
-        ) AS stock
-      FROM "StockLedger"
-      WHERE item_id = ${itemId};
-    `;
+            const reservedQty = Number(reserved?.[0]?.alive_reserved_qty ?? 0);
 
-            if (!item) {
-                throwError({
-                    message: "this item is not able to consume at this time",
-                    statusCode: 400,
-                });
-            }
+            let remainingQty = quantity;
 
+            // Create consumption record
             const consumption = await tx.consumption.create({
                 data: {
-                    house: {
-                        connect: {
-                            id: houseId,
-                        },
-                    },
-                    batch: batchHouse.batch_id ? { connect: { id: batchHouse.batch_id } } : undefined,
-                    quantity: quantity,
+                    house: { connect: { id: houseId } },
+                    batch: batchHouse?.batch_id
+                        ? { connect: { id: batchHouse.batch_id } }
+                        : undefined,
+                    quantity,
+                    item: { connect: { id: itemId } },
                     date: occurredAt,
                     note: note?.trim() ?? null,
                 },
             });
 
-            if (!consumption) {
-                throwError({
-                    message: "Row creation faild in consumption table",
+            // 1️⃣ Consume from HOUSE (if reserved exists)
+            if (reservedQty > 0) {
+                const consumeFromHouse = Math.min(reservedQty, remainingQty);
+
+                await tx.stockLedger.create({
+                    data: {
+                        item: { connect: { id: itemId } },
+                        quantity: consumeFromHouse,
+                        reason: StockReason.CONSUMPTION,
+                        direction: StockDirection.OUT,
+                        occurred_at: occurredAt,
+                        idempotency_key: `CONSUMPTION_HOUSE:${consumption.id}:${itemId}`,
+                        ref_id: consumption.id,
+                        ref_type: RefType.CONSUMPTION,
+                        location_type: LocationType.HOUSE,
+                        location_id: houseId,
+                    },
                 });
+
+                remainingQty -= consumeFromHouse;
             }
 
-            await tx.stockLedger.create({
-                data: {
-                    item: {
-                        connect: {
-                            id: itemId,
-                        },
+            // 2️⃣ Consume remaining from WAREHOUSE (if needed)
+            if (remainingQty > 0) {
+                const warehouseStockResult = await tx.$queryRaw<{ stock: number | null }[]>`
+      SELECT COALESCE(SUM(
+        CASE 
+          WHEN direction = 'IN' THEN quantity
+          WHEN direction = 'OUT' THEN -quantity
+        END
+      ), 0) AS stock
+      FROM "StockLedger"
+      WHERE item_id = ${itemId}
+        AND location_type = 'WAREHOUSE';
+    `;
+
+                const warehouseStock = Number(warehouseStockResult[0]?.stock ?? 0);
+
+                if (warehouseStock < remainingQty) {
+                    throwError({
+                        message: "Insufficient warehouse stock",
+                        statusCode: 400,
+                    });
+                }
+
+                await tx.stockLedger.create({
+                    data: {
+                        item: { connect: { id: itemId } },
+                        quantity: remainingQty,
+                        reason: StockReason.CONSUMPTION,
+                        direction: StockDirection.OUT,
+                        occurred_at: occurredAt,
+                        idempotency_key: `CONSUMPTION_WAREHOUSE:${consumption.id}:${itemId}`,
+                        ref_id: consumption.id,
+                        ref_type: RefType.CONSUMPTION,
+                        location_type: LocationType.WAREHOUSE,
+                        location_id: null,
                     },
-                    quantity: quantity,
-                    from_location_type: LocationType.WAREHOUSE,
-                    reason: StockReason.CONSUMPTION,
-                    direction: StockDirection.OUT,
-                    occurred_at: occurredAt,
-                    idempotency_key: `${StockReason.CONSUMPTION}:${consumption.id}:${itemId}`,
-                },
-            });
+                });
+            }
         });
         return response({
             message: "Item consumption recorded successfully!i",
