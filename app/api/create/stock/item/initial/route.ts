@@ -1,5 +1,6 @@
 import {
     LocationType,
+    RefType,
     StockDirection,
     StockReason,
 } from "@/app/generated/prisma/enums";
@@ -7,6 +8,7 @@ import { errorResponse, response } from "@/lib/apiResponse";
 import { throwError } from "@/lib/error";
 import prisma from "@/lib/prisma";
 import { addInitialItemSchema } from "@/schemas/item.schema";
+import { randomUUID } from "crypto";
 import { NextRequest } from "next/server";
 
 export async function POST(req: NextRequest) {
@@ -36,8 +38,11 @@ export async function POST(req: NextRequest) {
                     unit_cost: data.unitCost,
                     occurred_at: data.date,
                     idempotency_key: `OPENING:${data.itemId}`,
-                    to_location_type: LocationType.WAREHOUSE,
+                    location_type: LocationType.WAREHOUSE,
+                    location_id: null,
                     direction: StockDirection.IN,
+                    ref_type: RefType.EXISTING_STOCK,
+                    ref_id: randomUUID()
                 },
             });
         });
