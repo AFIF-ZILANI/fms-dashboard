@@ -15,7 +15,7 @@ export async function GET() {
         houses.map((h) =>
             data.push({
                 id: h.id,
-                label: `${h.name} - ${h.number} - ${h.type}`,
+                label: h.name,
             })
         );
         return response({
