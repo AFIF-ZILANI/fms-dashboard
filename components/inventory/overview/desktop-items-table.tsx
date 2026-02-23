@@ -53,7 +53,6 @@ export function InventoryTable(props: InventoryTableProps) {
         pageIndex,
         pageSize,
         totalPages,
-        totalCount,
         onPageChange,
         onPageSizeChange,
         onItemClick,
@@ -231,13 +230,28 @@ const inventoryColumns: ColumnDef<InventoryItem>[] = [
         ),
     },
     {
-        accessorKey: "stock",
-        header: () => "Current Stock",
+        accessorKey: "warehouseStock",
+        header: () => "Warehouse Stock",
         cell: ({ row }) => {
             const unit = formatEnums(row.original.unit);
             return (
                 <div className="font-semibold">
-                    {row.original.stock}{" "}
+                    {row.original.warehouseStock}{" "}
+                    <span className="text-xs text-muted-foreground">
+                        {unit}
+                    </span>
+                </div>
+            );
+        },
+    },
+    {
+        accessorKey: "houseReservedStock",
+        header: () => "House Reserved Stock",
+        cell: ({ row }) => {
+            const unit = formatEnums(row.original.unit);
+            return (
+                <div className="font-semibold">
+                    {row.original.houseReservedStock}{" "}
                     <span className="text-xs text-muted-foreground">
                         {unit}
                     </span>
@@ -275,7 +289,13 @@ const inventoryColumns: ColumnDef<InventoryItem>[] = [
                 );
             } else {
                 return (
-                    <span className="font-semibold text-red-500">
+                    <span
+                        className={`font-semibold ${
+                            row.original.movementType === "TRANSFER"
+                                ? "text-yellow-500"
+                                : "text-red-500"
+                        }`}
+                    >
                         -{row.original.movementQuantity}
                     </span>
                 );
