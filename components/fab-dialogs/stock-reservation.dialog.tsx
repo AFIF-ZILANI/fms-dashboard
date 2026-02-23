@@ -10,7 +10,7 @@ import {
     DialogTrigger,
 } from "../ui/dialog";
 import { Button } from "../ui/button";
-import { Plus, Save } from "lucide-react";
+import { Plus, RefreshCcw, Save } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useGetData, usePostData } from "@/lib/api-request";
@@ -33,13 +33,13 @@ import {
 import { Input } from "../ui/input";
 import { toast } from "sonner";
 import { Spinner } from "../ui/spinner";
-import { GetHouses } from "@/types";
+import { GetHouses, ItemInventoryForUse } from "@/types";
 import {
     addStockReservationSchema,
     AddStockReservationInput,
 } from "@/schemas/item.schema";
-import { Item } from "@/types/purchase";
 import { Badge } from "../ui/badge";
+import { TooltipCreator } from "@/lib/strings";
 
 interface HelperResponse {
     data: GetHouses;
@@ -47,7 +47,6 @@ interface HelperResponse {
 
 export function StockReservationDialog() {
     const [dialogOpen, setDialogOpen] = useState(false);
-    const [currentStock, setCurrentStock] = useState<number>(0);
     const form = useForm<AddStockReservationInput>({
         resolver: zodResolver(addStockReservationSchema),
         defaultValues: {
@@ -67,39 +66,53 @@ export function StockReservationDialog() {
         error,
     } = usePostData("/create/stock/item/reservation");
     const { data: itemsListRes } = useGetData<{
-        data: Item[];
-    }>("/get/stock/items/all");
+        data: ItemInventoryForUse[];
+    }>("/get/stock/items/to-use");
 
     const houses = helperData?.data.houses;
     const itemsList = itemsListRes?.data || [];
     console.log(itemsListRes);
 
-    const selectedItem = form.watch("itemId");
-    const consumeQuantity = form.watch("quantity");
-    const selectedItemDetails = itemsList.find((i) => i.id === selectedItem);
+    function handleFormReset() {
+        form.reset({
+            houseId: "",
+            itemId: "",
+            quantity: "",
+            occurredAt: new Date(),
+        });
+    }
 
-    // Update current stock when item is selected
-    useEffect(() => {
-        if (selectedItem) {
-            fetch(`/api/get/stock/items/one?id=${selectedItem}`).then(
-                async (res) => {
-                    const response = await res.json();
-                    setCurrentStock(response.data ?? 0);
-                }
-            );
-        }
-    }, [selectedItem]);
+    const {
+        itemId: selectedItem,
+        houseId: selectedHouse,
+        quantity: allocatedQuantity,
+    } = form.watch();
+
+    const selectedItemDetails = itemsList.find(
+        (i) => i.item_id === selectedItem
+    );
 
     // Calculate remaining stock
-    const remainingStock =
-        currentStock - (parseFloat(consumeQuantity as string) || 0);
+    const warehouseStock = Number(selectedItemDetails?.warehouse_stock ?? 0);
+
+    const currentHouseReserved = Number(
+        selectedItemDetails?.house_reserved_stocks.find(
+            (r) => r.houseId === selectedHouse
+        )?.quantity ?? 0
+    );
+
+    const allocateQty = parseFloat((allocatedQuantity as string) || "0");
+
+    // After allocation
+    const warehouseAfterAllocation = warehouseStock - allocateQty;
+    const houseReservedAfterAllocation = currentHouseReserved + allocateQty;
+
     /* ---------------- Effects ---------------- */
 
     useEffect(() => {
         if (isSuccess) {
             toast.success("Stock reserved successfully!");
-            form.reset();
-            setCurrentStock(0);
+            handleFormReset();
             // setDialogOpen(false);
         }
 
@@ -154,14 +167,16 @@ export function StockReservationDialog() {
                                 name="houseId"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>House</FormLabel>
+                                        <FormLabel>Shed</FormLabel>
                                         <Select
-                                            value={field.value}
-                                            onValueChange={field.onChange}
+                                            value={field.value ?? ""}
+                                            onValueChange={(val) =>
+                                                field.onChange(val || undefined)
+                                            }
                                         >
                                             <FormControl>
                                                 <SelectTrigger className="w-full">
-                                                    <SelectValue placeholder="Select house" />
+                                                    <SelectValue placeholder="Select shed" />
                                                 </SelectTrigger>
                                             </FormControl>
                                             <SelectContent>
@@ -191,8 +206,10 @@ export function StockReservationDialog() {
                                             <FormControl>
                                                 <Select
                                                     value={field.value || ""}
-                                                    onValueChange={
-                                                        field.onChange
+                                                    onValueChange={(val) =>
+                                                        field.onChange(
+                                                            val || undefined
+                                                        )
                                                     }
                                                 >
                                                     <SelectTrigger className="w-full">
@@ -203,10 +220,10 @@ export function StockReservationDialog() {
                                                             (item) => (
                                                                 <SelectItem
                                                                     key={
-                                                                        item.id
+                                                                        item.item_id
                                                                     }
                                                                     value={
-                                                                        item.id
+                                                                        item.item_id
                                                                     }
                                                                 >
                                                                     <span className="font-semibold">
@@ -214,11 +231,17 @@ export function StockReservationDialog() {
                                                                             item.name
                                                                         }
                                                                     </span>{" "}
-                                                                    -{" "}
+                                                                    -
                                                                     <span>
-                                                                        {item.company ||
-                                                                            "Unknown"}
-                                                                    </span>
+                                                                        {TooltipCreator(
+                                                                            {
+                                                                                text:
+                                                                                    item.company ??
+                                                                                    "Unknown Company",
+                                                                                size: 24,
+                                                                            }
+                                                                        )}
+                                                                    </span>{" "}
                                                                     -
                                                                     <Badge
                                                                         variant="outline"
@@ -227,7 +250,7 @@ export function StockReservationDialog() {
                                                                         {
                                                                             item.category
                                                                         }
-                                                                    </Badge>{" "}
+                                                                    </Badge>
                                                                 </SelectItem>
                                                             )
                                                         )}
@@ -240,22 +263,34 @@ export function StockReservationDialog() {
                             />
 
                             {/* Stock Available Display */}
-                            {selectedItemDetails && (
-                                <div className="bg-muted/50 border border-border rounded-md p-3">
-                                    <div className="flex items-center justify-between">
-                                        <span className="text-sm font-medium text-foreground">
-                                            Available Stock
-                                        </span>
-                                        <span className="text-lg font-semibold text-foreground">
-                                            {currentStock}{" "}
-                                            <span className="text-sm text-muted-foreground">
-                                                {selectedItemDetails.unit ||
-                                                    "Units"}
-                                            </span>
-                                        </span>
-                                    </div>
+                            <div className="bg-muted/50 border border-border rounded-md p-4 space-y-3">
+                                <div className="text-sm font-semibold">
+                                    Current Stock Status
                                 </div>
-                            )}
+
+                                <div className="flex justify-between text-sm">
+                                    <span>Warehouse Stock</span>
+                                    <span className="font-medium">
+                                        {warehouseStock}{" "}
+                                        {selectedItemDetails?.unit}
+                                    </span>
+                                </div>
+
+                                <div className="flex justify-between text-sm">
+                                    <span>
+                                        Current Allocation for This Shed
+                                    </span>
+                                    <span className="font-medium">
+                                        {currentHouseReserved}{" "}
+                                        {selectedItemDetails?.unit}
+                                    </span>
+                                </div>
+
+                                <div className="border-t pt-2 text-xs text-muted-foreground">
+                                    Allocation moves stock from warehouse to
+                                    shed reservation.
+                                </div>
+                            </div>
 
                             <div className="grid grid-cols-7 gap-4">
                                 <div className={`col-span-4`}>
@@ -350,37 +385,44 @@ export function StockReservationDialog() {
                             </div>
                             {/* Remaining Stock Display */}
                             {selectedItemDetails &&
-                                typeof consumeQuantity === "string" && (
+                                typeof allocatedQuantity === "string" &&
+                                allocateQty > 0 && (
                                     <div
-                                        className={`border rounded-md p-3 ${
-                                            remainingStock < 0
+                                        className={`border rounded-md p-4 space-y-3 ${
+                                            warehouseAfterAllocation < 0
                                                 ? "bg-red-50 border-red-300"
-                                                : "bg-green-50 border-green-300"
+                                                : "bg-blue-50 border-blue-300"
                                         }`}
                                     >
-                                        <div className="flex items-center justify-between">
-                                            <span className="text-sm font-medium text-foreground">
-                                                Remaining Stock
-                                            </span>
+                                        <div className="text-sm font-semibold">
+                                            After Allocation
+                                        </div>
+
+                                        <div className="flex justify-between text-sm">
+                                            <span>Warehouse Remaining</span>
                                             <span
-                                                className={`text-lg font-bold ${
-                                                    remainingStock < 0
+                                                className={`font-bold ${
+                                                    warehouseAfterAllocation < 0
                                                         ? "text-red-600"
                                                         : "text-green-600"
                                                 }`}
                                             >
-                                                {remainingStock.toFixed(2)}{" "}
-                                                <span className="text-sm text-muted-foreground font-normal">
-                                                    {selectedItemDetails.unit ||
-                                                        "Units"}
-                                                </span>
+                                                {warehouseAfterAllocation}{" "}
+                                                {selectedItemDetails.unit}
                                             </span>
                                         </div>
-                                        {remainingStock < 0 && (
-                                            <p className="text-xs text-red-600 mt-2 font-medium">
-                                                ⚠️ Insufficient stock -
-                                                allocation exceeds available
-                                                quantity
+
+                                        <div className="flex justify-between text-sm">
+                                            <span>Shed Reserved Total</span>
+                                            <span className="font-bold text-blue-600">
+                                                {houseReservedAfterAllocation}{" "}
+                                                {selectedItemDetails.unit}
+                                            </span>
+                                        </div>
+
+                                        {warehouseAfterAllocation < 0 && (
+                                            <p className="text-xs text-red-600 font-medium">
+                                                ⚠️ Insufficient warehouse stock.
                                             </p>
                                         )}
                                     </div>
@@ -389,23 +431,22 @@ export function StockReservationDialog() {
 
                         <DialogFooter className="grid grid-cols-2 gap-4 mt-4 md:mt-6">
                             {/* Form Reset */}
-                            {/* <Button
+                            <Button
                                 variant={"outline"}
-                                onClick={() => {
-                                    form.reset();
-                                    setCurrentStock(0);
-                                }}
+                                onClick={handleFormReset}
                                 className="cursor-pointer"
                                 type="button"
                             >
                                 <RefreshCcw />
                                 Reset
-                            </Button> */}
+                            </Button>
                             {/* Submit */}
                             <Button
                                 type="submit"
                                 disabled={
-                                    submitIsPending || remainingStock <= 0
+                                    submitIsPending ||
+                                    allocateQty <= 0 ||
+                                    warehouseAfterAllocation < 0
                                 }
                                 className="cursor-pointer"
                             >
