@@ -5,10 +5,16 @@ import {
     TooltipTrigger,
 } from "@/components/ui/tooltip";
 
-export function TooltipCreator({ text }: { text?: string }) {
-    const shortId = (id: string) => id.slice(0, 14) + "...";
+export function TooltipCreator({
+    text,
+    size,
+}: {
+    text: string;
+    size?: number;
+}) {
+    const shortId = (id: string) => id.slice(0, size || 14) + "...";
     if (text) {
-        if (text.length < 14) {
+        if (text.length < (size || 14)) {
             return text;
         }
         return (
