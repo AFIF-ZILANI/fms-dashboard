@@ -38,25 +38,27 @@ export function getStatusBadge(status: ValidStatus) {
 export function getItemsCardMetaData(type: StockReason, quantity: number) {
     if (type === "PURCHASE" || type === "OPENING_BALANCE") {
         return (
-            <div className="flex gap-2">
-                <span className="text-xs text-muted-foreground font-medium">
-                    {formatEnums(type)}
-                </span>
-                <span className="text-xs font-bold text-green-500">
-                    +{quantity}
-                </span>
+            <div className="flex gap-2 text-green-500">
+                <span className="text-xs font-medium">{formatEnums(type)}</span>
+                <span className="text-xs font-bold">+{quantity}</span>
             </div>
         );
     } else {
         return (
-            <div className="flex gap-2">
-                <span className="text-xs text-muted-foreground font-medium">
-                    {formatEnums(type)}
-                </span>
-                <span className="text-xs font-bold text-red-500">
-                    -{quantity}
-                </span>
+            <div
+                className={cn(
+                    "flex gap-2",
+                    type === "TRANSFER" || type === "RETURN"
+                        ? "text-yellow-500"
+                        : "text-red-500"
+                )}
+            >
+                <span className="text-xs font-medium">{formatEnums(type)}</span>
+                <span className="text-xs font-bold">-{quantity}</span>
             </div>
         );
     }
 }
+
+export const formatQty = (value: number | string) =>
+    parseFloat(Number(value).toFixed(3));
