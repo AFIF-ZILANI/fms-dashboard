@@ -1,6 +1,6 @@
 import { AllocationReason } from "@/app/generated/prisma/enums";
 import { errorResponse, response } from "@/lib/apiResponse";
-import { assertHouseHasRunningBatch, assertHouseIdsValid } from "@/lib/db";
+import { assertHouseHasRunningBatchFast, assertHouseHasRunningBatchFastThrowError, assertHouseIdsValid, createBatchHouseAllocationWithBalanceUpdate } from "@/lib/db";
 import { throwError } from "@/lib/error";
 import prisma from "@/lib/prisma";
 import { batchAllocationSchema } from "@/schemas/batch.schema";
@@ -21,7 +21,7 @@ export async function POST(req: NextRequest) {
             await assertHouseIdsValid(tx, [fromHouseId, toHouseId]);
 
             // Verify the source house has an active batch to transfer from
-            const sourceBatch = await assertHouseHasRunningBatch(tx, fromHouseId, date);
+            const sourceBatch = await assertHouseHasRunningBatchFastThrowError(tx, fromHouseId);
             if (!sourceBatch) {
                 throwError({
                     message: "The source house does not have an active batch for the specified date.",
@@ -30,7 +30,8 @@ export async function POST(req: NextRequest) {
             }
 
             // Verify the destination house is currently empty
-            const destinationBatch = await assertHouseHasRunningBatch(tx, toHouseId, date);
+            const destinationBatch = await assertHouseHasRunningBatchFast(tx, toHouseId);
+            console.log("[DESTINATION BATCH] => ", destinationBatch);
             if (destinationBatch) {
                 throwError({
                     message: "The destination house already has an active batch and cannot receive another.",
@@ -57,18 +58,6 @@ export async function POST(req: NextRequest) {
                 }
                 // TODO: Validate quantity against (availableQty - totalMortality) for full transfers
             }
-
-            // Record the batch allocation/transfer
-            await tx.batchHouseAllocation.create({
-                data: {
-                    from_house_id: fromHouseId,
-                    to_house_id: toHouseId,
-                    batch_id: sourceBatch.batch_id,
-                    quantity: quantity,
-                    reason: AllocationReason.TRANSFER,
-                    occurred_at: date,
-                },
-            });
 
             // Update the consumption records for the source house
             const lastAllocation = await tx.batchHouseAllocation.findFirst({
@@ -104,6 +93,16 @@ export async function POST(req: NextRequest) {
                     batch_id: sourceBatch.batch_id,
                 },
             });
+
+            // Record the batch allocation/transfer
+            await createBatchHouseAllocationWithBalanceUpdate(tx, {
+                batchId: sourceBatch.batch_id,
+                fromHouseId,
+                toHouseId,
+                quantity,
+                reason: AllocationReason.TRANSFER,
+                occurredAt: date,
+            })
 
         });
 
