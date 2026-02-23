@@ -200,7 +200,7 @@ export async function POST(req: NextRequest) {
             await tx.stockLedger.createMany({
                 data: data.items.map((item) => ({
                     item_id: item.itemId,
-                    idempotency_key: `${StockReason.PURCHASE}:${purchase.id}:${item.itemId}`,
+                    idempotency_key: `PURCHASE:${purchase.id}:${item.itemId}`,
                     direction: StockDirection.IN,
                     quantity: item.quantity,
                     unit_cost: item.unitPrice,
@@ -208,8 +208,9 @@ export async function POST(req: NextRequest) {
                     occurred_at: data.purchaseDate,
                     ref_type: RefType.PURCHASE,
                     ref_id: purchase.id,
-                    from_location_type: LocationType.SUPPLIER,
-                    to_location_type: LocationType.WAREHOUSE,
+                    location_type: LocationType.WAREHOUSE,
+                    location_id: null,
+
                 })),
             });
         });
