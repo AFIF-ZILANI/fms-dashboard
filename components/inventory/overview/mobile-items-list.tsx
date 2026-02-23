@@ -16,6 +16,9 @@ import {
     ChevronsLeft,
     ChevronsRight,
     ChevronRightIcon,
+    WarehouseIcon as Warehouse,
+    Bookmark,
+    PackageCheck,
 } from "lucide-react";
 import { getItemsCardMetaData, getStatusBadge } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -89,37 +92,75 @@ export function InventoryMobileList({
                         >
                             <div className="flex items-start justify-between gap-3">
                                 <div className="flex-1 min-w-0">
-                                    <div className="mb-4 space-y-4">
-                                       
-                                        <div className="space-y-1">
-                                             <h3 className="font-semibold text-sm leading-snug line-clamp-2 text-foreground">
-                                            {item.name}
-                                        </h3>
+                                    <div className="flex justify-between">
+                                        <div className="mb-4 space-y-4">
+                                            <div className="space-y-1">
+                                                <h3 className="font-semibold text-sm leading-snug line-clamp-2 text-foreground">
+                                                    {item.name}
+                                                </h3>
+                                                <div className="flex items-center gap-2">
+                                                    <p className="text-xs font-medium text-muted-foreground bg-muted/50 px-2 py-1 rounded">
+                                                        {formatEnums(
+                                                            item.category
+                                                        )}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div className="flex flex-col items-end gap-2 shrink-0 pt-1">
+                                            {getStatusBadge(item.status)}
                                             {item.movementQuantity &&
                                                 item.movementType &&
                                                 getItemsCardMetaData(
                                                     item.movementType,
                                                     item.movementQuantity
                                                 )}
-                                            
+                                            {item.status ===
+                                                "NOT_INITIALIZED" && (
+                                                <div className="flex gap-2 text-muted-foreground">
+                                                    <span className="text-xs font-medium">
+                                                        No Movement Yet
+                                                    </span>
+                                                </div>
+                                            )}
                                         </div>
-                                        <div className="flex items-center gap-2">
-                                                <p className="text-xs font-medium text-muted-foreground bg-muted/50 px-2 py-1 rounded">
-                                                    {formatEnums(item.category)}
-                                                </p>
-                                            </div>
                                     </div>
-                                    <p className="text-base font-semibold text-foreground">
-                                        {item.stock}{" "}
-                                        <span className="text-xs text-muted-foreground font-normal">
-                                            {formatEnums(item.unit)}
-                                        </span>
-                                    </p>
-                                </div>
+                                    {/* Warehouse and Reserved Stock */}
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <div className="p-3 bg-muted rounded-lg border border-border">
+                                            <div className="flex items-center gap-2 mb-2">
+                                                <div className="p-1.5 bg-background rounded-md">
+                                                    <Warehouse className="w-4 h-4 text-primary" />
+                                                </div>
+                                                <span className="text-xs font-medium text-muted-foreground">
+                                                    Warehouse
+                                                </span>
+                                            </div>
+                                            <p className="text-base font-bold text-foreground">
+                                                {item.warehouseStock}
+                                                <span className="text-xs font-medium text-muted-foreground ml-1">
+                                                    {item.unit}
+                                                </span>
+                                            </p>
+                                        </div>
 
-                                <div className="flex flex-col items-end gap-2 shrink-0 pt-1">
-                                    {getStatusBadge(item.status)}
-                                    <ChevronRightIcon className="h-5 w-5 text-muted-foreground" />
+                                        <div className="p-3 bg-muted rounded-lg border border-border">
+                                            <div className="flex items-center gap-2 mb-2">
+                                                <div className="p-1.5 bg-background rounded-md">
+                                                    <PackageCheck className="w-4 h-4 text-destructive" />
+                                                </div>
+                                                <span className="text-xs font-medium text-muted-foreground">
+                                                    Reserved
+                                                </span>
+                                            </div>
+                                            <p className="text-base font-bold text-foreground">
+                                                {item.houseReservedStock}
+                                                <span className="text-xs font-medium text-muted-foreground ml-1">
+                                                    {item.unit}
+                                                </span>
+                                            </p>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </Card>
