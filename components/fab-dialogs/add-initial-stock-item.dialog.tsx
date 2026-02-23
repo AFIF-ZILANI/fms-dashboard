@@ -23,8 +23,15 @@ import { Item } from "@/types/purchase";
 import { DialogTrigger } from "@radix-ui/react-dialog";
 import { usePostData } from "@/lib/api-request";
 import { toast } from "sonner";
+import { Badge } from "../ui/badge";
+import { TooltipCreator } from "@/lib/strings";
+import { ItemInventorySummary } from "@/types";
 
-export function InitialStockItemForm({ items }: { items: Item[] }) {
+export function InitialStockItemForm({
+    items,
+}: {
+    items: ItemInventorySummary[];
+}) {
     const { isError, isPending, isSuccess, error, mutate } = usePostData(
         "/create/stock/item/initial"
     );
@@ -33,7 +40,7 @@ export function InitialStockItemForm({ items }: { items: Item[] }) {
     const [quantity, setQuantity] = useState("");
     const [unitCost, setUnitCost] = useState("");
 
-    const selectedItem = items.find((i) => i.id === selectedItemId);
+    const selectedItem = items.find((i) => i.item_id === selectedItemId);
 
     const handleNumberInput = (value: any, setter: any) => {
         if (!/^\d*\.?\d*$/.test(value)) return;
@@ -57,6 +64,8 @@ export function InitialStockItemForm({ items }: { items: Item[] }) {
         });
     };
 
+    console.log("items => ", items);
+
     const handleReset = () => {
         setSelectedItemId("");
         setQuantity("");
@@ -71,13 +80,13 @@ export function InitialStockItemForm({ items }: { items: Item[] }) {
 
     useEffect(() => {
         if (isSuccess) {
-            toast("Item Added Successfully!")
+            toast("Item Added Successfully!");
             handleReset();
         }
         if (isError && !isPending) {
             toast.error(error.message);
         }
-    }, [isError, isPending, error]);
+    }, [isError, isPending, error, isSuccess]);
 
     return (
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
@@ -116,9 +125,26 @@ export function InitialStockItemForm({ items }: { items: Item[] }) {
                             </SelectTrigger>
                             <SelectContent>
                                 {items.map((item) => (
-                                    <SelectItem key={item.id} value={item.id}>
-                                        {item.name} - {item.company} (
-                                        {item.category})
+                                    <SelectItem
+                                        key={item.item_id}
+                                        value={item.item_id}
+                                    >
+                                        <span className="font-semibold">
+                                            {item.name}
+                                        </span>{" "}
+                                        -{" "}
+                                        {TooltipCreator({
+                                            text:
+                                                item.company ||
+                                                "Unknown Company",
+                                            size: 20,
+                                        })}
+                                        <Badge
+                                            className="ml-2"
+                                            variant={"outline"}
+                                        >
+                                            {item.category}
+                                        </Badge>
                                     </SelectItem>
                                 ))}
                             </SelectContent>
@@ -171,9 +197,9 @@ export function InitialStockItemForm({ items }: { items: Item[] }) {
                                     ৳
                                 </span>
                                 Unit Cost
-                                <span className="text-slate-400 text-xs ml-2">
+                                {/* <span className="text-slate-400 text-xs ml-2">
                                     (optional)
-                                </span>
+                                </span> */}
                             </Label>
                             <Input
                                 type="text"

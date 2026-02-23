@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm, Controller } from "react-hook-form";
+import { useForm } from "react-hook-form";
 import { paymentInstrumentSchema } from "@/schemas/payment.schem";
 import { UserRole, PaymentMethod, MfsType } from "@/app/generated/prisma/enums";
 
@@ -33,9 +33,9 @@ import {
     FormMessage,
 } from "@/components/ui/form";
 import { z } from "zod";
-import { RefreshCcw, Save } from "lucide-react";
+import { Plus, RefreshCcw, Save } from "lucide-react";
 import { Spinner } from "../ui/spinner";
-import { useGetData, usePostData } from "@/lib/api-request";
+import { usePostData } from "@/lib/api-request";
 import { ActorSearchAsync } from "../actor-search";
 import { ActorSearchItem } from "@/types";
 import { toast } from "sonner";
@@ -43,7 +43,7 @@ import { toast } from "sonner";
 type PaymentInstrumentForm = z.infer<typeof paymentInstrumentSchema>;
 
 export function AddPaymentInstrumentDialog() {
-    const [owner, setOwner] = useState<ActorSearchItem | null>(null);
+    const [owner] = useState<ActorSearchItem | null>(null);
     const {
         isError,
         isPending: submitIsPending,
@@ -90,12 +90,20 @@ export function AddPaymentInstrumentDialog() {
 
     useEffect(() => {
         form.setValue("ownerId", owner?.id || "");
-    }, [owner]);
+    }, [owner, form]);
 
     return (
         <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
-                <Button variant="outline">+ Payment Instrument</Button>
+                <Button
+                    variant="secondary"
+                    size="sm"
+                    className="w-[150px] shadow-lg hover:shadow-xl transition-all hover:scale-105 bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/80"
+                    role="menuitem"
+                >
+                    <Plus className="h-4 w-4 shrink-0" />
+                    <span className="text-sm font-medium">Pay Instrument</span>
+                </Button>
             </DialogTrigger>
 
             <DialogContent className="sm:max-w-lg">
