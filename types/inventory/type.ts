@@ -32,10 +32,11 @@ export type InventoryItem = {
     name: string;
     category: ResourceCategories;
     unit: string;
-    lastMovement: Date;
-    movementType: StockReason;
-    movementQuantity: number;
-    stock: number;
+    lastMovement: Date | null;
+    movementType: StockReason | null;
+    movementQuantity: number | null;
+    warehouseStock: number;
+    houseReservedStock: number;
     status: ValidStatus;
 };
 

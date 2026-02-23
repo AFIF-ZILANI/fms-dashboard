@@ -1,4 +1,5 @@
-import { BirdBreeds, UserRole } from "@/app/generated/prisma/enums";
+import { Prisma } from "@/app/generated/prisma/client";
+import { BirdBreeds, ResourceCategories, UserRole } from "@/app/generated/prisma/enums";
 import { Phase } from "@/config/bird-man.config";
 
 export interface ProfileGraphProps {
@@ -140,4 +141,26 @@ export type GetHouses = {
 export type Organization = {
     id: string;
     labelName: string;
+};
+
+
+
+export type ItemInventorySummary = {
+    item_id: string;
+    name: string;
+    category: string;
+    unit: string;
+    company: string | null;
+    current_stock: Prisma.Decimal;
+    alive_reserved_qty: Prisma.Decimal;
+};
+
+export type ItemInventoryForUse = {
+    item_id: string;
+    name: string;
+    category: string;
+    unit: string;
+    company: string | null;
+    warehouse_stock: Prisma.Decimal;
+    house_reserved_stocks: { houseId: string; quantity: Prisma.Decimal }[]
 };
