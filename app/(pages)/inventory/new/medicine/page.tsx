@@ -1,7 +1,7 @@
 "use client";
 
 import { Package, Pill, Save, Shield, ChevronDown } from "lucide-react";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { OrganizationRole, Units } from "@/app/generated/prisma/enums";
@@ -32,12 +32,7 @@ import {
     addMedicineSchema,
     AddStockItemSchema,
 } from "@/schemas/item.schema";
-import {
-    MedicineCategory,
-    MedicineForm,
-    MedicineRoute,
-    StorageCondition,
-} from "@/types/enum";
+import { MedicineCategory, MedicineForm, MedicineRoute } from "@/types/enum";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatEnums } from "@/lib/strings";
@@ -88,13 +83,8 @@ export default function AddMedicinePage() {
         },
     });
 
-    const {
-        mutate,
-        isPending: submitIsPending,
-        isSuccess,
-        isError,
-        error,
-    } = usePostData("/create/stock/item");
+    const { mutate, isPending: submitIsPending } =
+        usePostData("/create/stock/item");
 
     const handleReset = useCallback(() => {
         form.reset({
@@ -109,18 +99,6 @@ export default function AddMedicinePage() {
         setResetCounter((prev) => prev + 1);
         setMetaRows([{ key: "", value: "" }]);
     }, [form]);
-    /* ---------------- Effects ---------------- */
-
-    useEffect(() => {
-        if (isSuccess) {
-            toast.success("Medicine item added successfully");
-            handleReset();
-        }
-
-        if (isError && error) {
-            toast.error(error.message || "Failed to add medicine item");
-        }
-    }, [isSuccess, isError, error, handleReset]);
 
     /* ---------------- Metadata Helpers ---------------- */
 
@@ -161,7 +139,10 @@ export default function AddMedicinePage() {
         return metadata;
     }, [metaRows]);
 
-    const category = form.watch("category");
+    const category = useWatch({
+        control: form.control,
+        name: "category",
+    });
 
     const onError = (error: unknown) => {
         console.error("[Error]", error);
@@ -195,8 +176,18 @@ export default function AddMedicinePage() {
             marketerId: values.marketerId,
             distributorId: values.distributorId,
         };
-        console.log("[Submit object]", obj);
-        mutate(obj);
+        // console.log("[Submit object]", obj);
+        mutate(obj, {
+            onSuccess: () => {
+                toast.success("Medicine item added successfully");
+                handleReset();
+            },
+            onError: (err: unknown) => {
+                toast.error(
+                    (err as Error).message || "Failed to add medicine item"
+                );
+            },
+        });
     };
 
     const getCategoryInfo = () => {
@@ -225,8 +216,25 @@ export default function AddMedicinePage() {
 
     const categoryInfo = getCategoryInfo();
 
-    const storageCondition = form.watch("storageCondition");
-    const storageTemp = form.watch("storageTempInCelsius");
+    const storageCondition = useWatch({
+        control: form.control,
+        name: "storageCondition",
+    });
+
+    const importerId = useWatch({
+        control: form.control,
+        name: "importerId",
+    });
+
+    const marketerId = useWatch({
+        control: form.control,
+        name: "marketerId",
+    });
+
+    const distributorId = useWatch({
+        control: form.control,
+        name: "distributorId",
+    });
 
     // Track if user manually edited temp
     const tempManuallyEdited = useRef(false);
@@ -252,7 +260,7 @@ export default function AddMedicinePage() {
                 shouldDirty: true,
             });
         }
-    }, [storageCondition]);
+    }, [storageCondition, form]);
 
     return (
         <div className="mx-auto max-w-4xl space-y-8">
@@ -602,9 +610,9 @@ export default function AddMedicinePage() {
 
                             <Collapsible
                                 defaultOpen={
-                                    !!form.watch("importerId") ||
-                                    !!form.watch("marketerId") ||
-                                    !!form.watch("distributorId")
+                                    !!importerId ||
+                                    !!marketerId ||
+                                    !!distributorId
                                 }
                             >
                                 <CollapsibleTrigger asChild>

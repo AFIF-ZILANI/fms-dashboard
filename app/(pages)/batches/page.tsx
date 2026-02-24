@@ -56,7 +56,7 @@ export default function Page() {
     }
 
     const batchData: BatchOverviewData = data.data;
-    console.log(batchData);
+    // console.log(batchData);
     return (
         <div className="grid grid-cols-1 md:px-6 px-4">
             <div className="flex flex-col">

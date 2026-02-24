@@ -1,7 +1,7 @@
 "use client";
 
 import { ChevronDown, RefreshCcw, Save } from "lucide-react";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
     OrganizationRole,
@@ -28,7 +28,7 @@ import {
 
 import { addStockItemSchema, AddStockItemSchema } from "@/schemas/item.schema";
 import { Spinner } from "@/components/ui/spinner";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { usePostData } from "@/lib/api-request";
 import { toast } from "sonner";
 import { OrganizationSelectAsync } from "@/components/org-search-or-create-select";
@@ -61,13 +61,8 @@ export default function NewStockItemPage() {
         },
     });
 
-    const {
-        mutate,
-        isPending: submitIsPending,
-        isSuccess,
-        isError,
-        error,
-    } = usePostData("/create/stock/item");
+    const { mutate, isPending: submitIsPending } =
+        usePostData("/create/stock/item");
 
     const handleReset = useCallback(() => {
         form.reset({
@@ -84,19 +79,6 @@ export default function NewStockItemPage() {
         setResetCounter((prev) => prev + 1);
         setMetaRows([{ key: "", value: "" }]);
     }, [form]);
-
-    /* ---------------- Effects ---------------- */
-
-    useEffect(() => {
-        if (isSuccess) {
-            toast.success("Stock item created successfully");
-            handleReset();
-        }
-
-        if (isError && error) {
-            toast.error(error.message || "Failed to create item");
-        }
-    }, [isSuccess, isError, error, handleReset]);
 
     /* ---------------- Metadata Helpers ---------------- */
 
@@ -142,15 +124,43 @@ export default function NewStockItemPage() {
 
     const onSubmit = (values: AddStockItemSchema) => {
         try {
-            mutate({
-                ...values,
-                isMetaDataAvailable,
-                metaData: metadata,
-            });
-        } catch (err: any) {
-            toast.error(err.message);
+            mutate(
+                {
+                    ...values,
+                    isMetaDataAvailable,
+                    metaData: metadata,
+                },
+                {
+                    onSuccess: () => {
+                        toast.success("Stock item created successfully");
+                        handleReset();
+                    },
+                    onError: (err: unknown) => {
+                        toast.error(
+                            (err as Error).message || "Failed to create item"
+                        );
+                    },
+                }
+            );
+        } catch (err: unknown) {
+            toast.error((err as Error).message);
         }
     };
+
+    const importerId = useWatch({
+        control: form.control,
+        name: "importerId",
+    });
+
+    const marketerId = useWatch({
+        control: form.control,
+        name: "marketerId",
+    });
+
+    const distributorId = useWatch({
+        control: form.control,
+        name: "distributorId",
+    });
 
     return (
         <div className="mx-auto max-w-4xl space-y-8">
@@ -394,9 +404,9 @@ export default function NewStockItemPage() {
 
                             <Collapsible
                                 defaultOpen={
-                                    !!form.watch("importerId") ||
-                                    !!form.watch("marketerId") ||
-                                    !!form.watch("distributorId")
+                                    !!importerId ||
+                                    !!marketerId ||
+                                    !!distributorId
                                 }
                             >
                                 <CollapsibleTrigger asChild>
