@@ -6,6 +6,8 @@ import { usePathname } from "next/navigation";
 import { Plus } from "lucide-react";
 import { AddStockItem } from "@/components/fab-dialogs/add-stock-item-dialog";
 import { AddMedicineStock } from "@/components/fab-dialogs/add-medicine-stock-dialog";
+import { RecordItemUsage } from "@/components/fab-dialogs/record-item-usage";
+import { StockReservationDialog } from "@/components/fab-dialogs/stock-reservation.dialog";
 
 export default function FAB() {
     const [open, setOpen] = useState(false);
@@ -58,8 +60,10 @@ export default function FAB() {
                             : "translate-y-4 opacity-0"
                     } space-y-2 flex flex-col`}
                 >
-                    <AddMedicineStock/>
-                    <AddStockItem/>
+                    <StockReservationDialog />
+                    <RecordItemUsage />
+                    <AddMedicineStock />
+                    <AddStockItem />
                 </div>
             </div>
 
