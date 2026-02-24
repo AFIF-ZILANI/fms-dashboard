@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { HouseEventEnum, HouseEventUnitEnum } from "@/types/enum";
-import { decimalNumber } from "./helper";
+import { decimalNumber, decimalOptional } from "./helper";
 
 export const addHouseEventSchema = z
     .object({
@@ -8,6 +8,7 @@ export const addHouseEventSchema = z
         eventType: z.nativeEnum(HouseEventEnum),
         occurredAt: z.coerce.date(),
         quantity: decimalNumber,
+        leftOverFeedQty: decimalOptional,
         unit: z.nativeEnum(HouseEventUnitEnum),
     })
     .superRefine((data, ctx) => {
