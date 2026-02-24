@@ -50,7 +50,6 @@ import { NextResponse } from "next/server";
 import { AppError } from "./error";
 import z from "zod";
 import { Prisma } from "@/app/generated/prisma/client";
-import { prettifyFieldName } from "./strings";
 
 type ApiResponse<T> = {
     success: boolean;

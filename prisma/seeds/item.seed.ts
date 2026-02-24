@@ -69,7 +69,7 @@ export type ItemInput = {
     name: string;
     category: ResourceCategories;
     unit: Units;
-    meta_data: Record<string, any>;
+    meta_data: Record<string, string>;
     created_at: Date;
     updated_at: Date;
 };
@@ -88,7 +88,7 @@ export function generateRealisticStockItems(count: number): ItemInput[] {
                 company: faker.company.name(),
                 batch_no: faker.string.alphanumeric(8).toUpperCase(),
                 description: faker.lorem.sentence(),
-                expiry_date: faker.date.future({ years: 2 }),
+                expiry_date: faker.date.future({ years: 2 }).toISOString(),
             },
             created_at: createdAt,
             updated_at: faker.date.between({ from: createdAt, to: new Date() }),
