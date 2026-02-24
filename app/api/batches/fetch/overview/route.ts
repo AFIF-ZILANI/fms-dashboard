@@ -135,7 +135,7 @@ export async function GET() {
                 ? data.todaysData.waterConsumed / data.todaysData.feedConsumed
                 : null;
 
-        console.log(data);
+        // console.log(data);
 
         return response({
             message: "Batch data fetched successfully",

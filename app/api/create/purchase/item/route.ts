@@ -1,5 +1,4 @@
 import {
-    ExpenseCategory,
     LocationType,
     PaymentRefType,
     PaymentStatus,
@@ -184,15 +183,15 @@ export async function POST(req: NextRequest) {
             // ------------------------
             // Expense only if transport cost > 0
             // ------------------------
-            if (data.transportCost > 0) {
-                await tx.expense.create({
-                    data: {
-                        category: ExpenseCategory.TRANSPORT,
-                        amount: data.transportCost,
-                        date: data.purchaseDate,
-                    },
-                });
-            }
+            // if (data.transportCost > 0) {
+            //     await tx.expense.create({
+            //         data: {
+            //             category: ExpenseCategory.TRANSPORT,
+            //             amount: data.transportCost,
+            //             date: data.purchaseDate,
+            //         },
+            //     });
+            // }
 
             // ------------------------
             // Stock ledger bulk insert

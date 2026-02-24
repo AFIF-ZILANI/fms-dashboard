@@ -51,12 +51,15 @@ export async function GET(req: NextRequest) {
                 });
 
                 console.log(res)
-
-                results = res.map((r) => ({
-                    id: r.suppliers?.id!!,
-                    name: r.name,
-                    type: "SUPPLIER",
-                }));
+                if (res) {
+                    results = res
+                        .filter((r) => r.suppliers?.id)
+                        .map((r) => ({
+                            id: r.suppliers!.id,
+                            name: r.name,
+                            type: "SUPPLIER",
+                        }));
+                }
                 break;
             }
 

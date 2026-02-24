@@ -111,36 +111,36 @@ export async function GET() {
 }
 
 // Helper function to calculate remaining stock for a purchase batch
-async function calculateRemainingBatchStock(
-    purchaseItemId: string
-): Promise<number> {
-    // First, get the original quantity from purchase
-    const purchaseItem = await prisma.purchaseItem.findUnique({
-        where: { id: purchaseItemId },
-        select: { quantity: true },
-    });
+// async function calculateRemainingBatchStock(
+//     purchaseItemId: string
+// ): Promise<number> {
+//     // First, get the original quantity from purchase
+//     const purchaseItem = await prisma.purchaseItem.findUnique({
+//         where: { id: purchaseItemId },
+//         select: { quantity: true },
+//     });
 
-    if (!purchaseItem) return 0;
+//     if (!purchaseItem) return 0;
 
-    const originalQuantity = Number(purchaseItem.quantity);
+//     const originalQuantity = Number(purchaseItem.quantity);
 
-    // Find all stock ledger entries that reference this purchase item
-    // You need to store the purchase_item_id in stockLedger when creating entries
-    const relatedLedgers = await prisma.stockLedger.findMany({
-        where: {
-            ref_type: "PURCHASE",
-            ref_id: purchaseItemId,
-        },
-    });
+//     // Find all stock ledger entries that reference this purchase item
+//     // You need to store the purchase_item_id in stockLedger when creating entries
+//     const relatedLedgers = await prisma.stockLedger.findMany({
+//         where: {
+//             ref_type: "PURCHASE",
+//             ref_id: purchaseItemId,
+//         },
+//     });
 
-    // Sum up all movements for this batch
-    const totalMoved = relatedLedgers.reduce((sum, ledger) => {
-        return sum + Number(ledger.quantity);
-    }, 0);
+//     // Sum up all movements for this batch
+//     const totalMoved = relatedLedgers.reduce((sum, ledger) => {
+//         return sum + Number(ledger.quantity);
+//     }, 0);
 
-    // Remaining = original quantity - total moved (where moved is negative for sales/consumption)
-    return originalQuantity - Math.abs(totalMoved);
-}
+//     // Remaining = original quantity - total moved (where moved is negative for sales/consumption)
+//     return originalQuantity - Math.abs(totalMoved);
+// }
 
 // Helper function to calculate inventory value
 async function calculateInventoryValue(): Promise<number | undefined> {
