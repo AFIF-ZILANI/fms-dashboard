@@ -4,15 +4,13 @@ import * as React from "react";
 import {
     AudioWaveform,
     Command,
-    FileText,
     GalleryVerticalEnd,
     House,
     Layers,
     Truck,
     ShoppingBag,
     Warehouse,
-    Wallet
-
+    Wallet,
 } from "lucide-react";
 
 import { NavMain } from "@/components/navigation/nav-main";

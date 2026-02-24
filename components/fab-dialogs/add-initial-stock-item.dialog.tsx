@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { RefreshCcw, Save, Package, Hash } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -19,7 +19,6 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
-import { Item } from "@/types/purchase";
 import { DialogTrigger } from "@radix-ui/react-dialog";
 import { usePostData } from "@/lib/api-request";
 import { toast } from "sonner";
@@ -32,9 +31,7 @@ export function InitialStockItemForm({
 }: {
     items: ItemInventorySummary[];
 }) {
-    const { isError, isPending, isSuccess, error, mutate } = usePostData(
-        "/create/stock/item/initial"
-    );
+    const { isPending, mutate } = usePostData("/create/stock/item/initial");
     const [dialogOpen, setDialogOpen] = useState(false);
     const [selectedItemId, setSelectedItemId] = useState("");
     const [quantity, setQuantity] = useState("");
@@ -42,7 +39,10 @@ export function InitialStockItemForm({
 
     const selectedItem = items.find((i) => i.item_id === selectedItemId);
 
-    const handleNumberInput = (value: any, setter: any) => {
+    const handleNumberInput = (
+        value: string,
+        setter: (value: string) => void
+    ) => {
         if (!/^\d*\.?\d*$/.test(value)) return;
         let v = value;
         if (/^0\d+/.test(v)) {
@@ -56,15 +56,26 @@ export function InitialStockItemForm({
 
     const handleSubmit = () => {
         if (!selectedItemId || !quantity) return;
-        mutate({
-            itemId: selectedItemId,
-            quantity,
-            date: new Date(),
-            unitCost,
-        });
+        mutate(
+            {
+                itemId: selectedItemId,
+                quantity,
+                date: new Date(),
+                unitCost,
+            },
+            {
+                onSuccess: () => {
+                    toast("Item Added Successfully!");
+                    handleReset();
+                },
+                onError: (error) => {
+                    toast.error(error.message);
+                },
+            }
+        );
     };
 
-    console.log("items => ", items);
+    // console.log("items => ", items);
 
     const handleReset = () => {
         setSelectedItemId("");
@@ -77,16 +88,6 @@ export function InitialStockItemForm({
         const cost = Number.parseFloat(unitCost) || 0;
         return (qty * cost).toFixed(2);
     };
-
-    useEffect(() => {
-        if (isSuccess) {
-            toast("Item Added Successfully!");
-            handleReset();
-        }
-        if (isError && !isPending) {
-            toast.error(error.message);
-        }
-    }, [isError, isPending, error, isSuccess]);
 
     return (
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>

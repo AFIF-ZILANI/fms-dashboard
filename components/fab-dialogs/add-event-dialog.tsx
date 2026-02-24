@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {
     Dialog,
     DialogContent,
@@ -11,7 +11,7 @@ import {
 } from "../ui/dialog";
 import { Button } from "../ui/button";
 import { Plus, RefreshCcw, Save } from "lucide-react";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import {
     addHouseEventSchema,
     HouseEventFormInput,
@@ -55,36 +55,21 @@ export function AddEventDialog() {
 
     /* ---------------- Data ---------------- */
 
-    const { data: helperData } = useGetData<HelperResponse>("/get/houses");
+    const { data: helperData } = useGetData<HelperResponse>(
+        "/get/houses/running"
+    );
 
-    const {
-        mutate,
-        isPending: submitIsPending,
-        isSuccess,
-        isError,
-        error,
-    } = usePostData("/create/record/event");
+    const { mutate, isPending: submitIsPending } = usePostData(
+        "/create/record/event"
+    );
 
     const houses = helperData?.data.houses;
     // console.log(houses);
 
-    const selectedHouseId = form.watch("houseId");
-    /* ---------------- Effects ---------------- */
-
-    useEffect(() => {
-        if (isSuccess) {
-            toast.success("House event saved successfully!");
-            form.reset();
-            // setDialogOpen(false);
-        }
-
-        if (isError && error) {
-            toast.error(error.message || "Failed to save house event");
-        }
-
-        // console.log()
-    }, [isSuccess, isError, error, form]);
-
+    const selectedHouseId = useWatch({
+        control: form.control,
+        name: "houseId",
+    });
     /* ---------------- Submit ---------------- */
 
     const onSubmit = (values: HouseEventFormInput) => {
@@ -96,11 +81,23 @@ export function AddEventDialog() {
                       values.unit as "KG" | "BAG"
                   )
                 : values.quantity;
-        mutate({
-            ...values,
-            quantity: normalizedQuantity,
-            unit: EVENT_UNIT_MAP[values.eventType].canonical,
-        });
+        mutate(
+            {
+                ...values,
+                quantity: normalizedQuantity,
+                unit: EVENT_UNIT_MAP[values.eventType].canonical,
+            },
+            {
+                onSuccess: () => {
+                    toast.success("House event saved successfully!");
+                    form.reset();
+                    // setDialogOpen(false);
+                },
+                onError: (error) => {
+                    toast.error(error.message || "Failed to save house event");
+                },
+            }
+        );
     };
 
     const onError = (errors: unknown) => {

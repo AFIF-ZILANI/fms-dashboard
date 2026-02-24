@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {
     Dialog,
     DialogContent,
@@ -11,7 +11,7 @@ import {
 } from "../ui/dialog";
 import { Button } from "../ui/button";
 import { Plus, RefreshCcw, Save } from "lucide-react";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useGetData, usePostData } from "@/lib/api-request";
 import {
@@ -58,13 +58,9 @@ export function StockReservationDialog() {
 
     const { data: helperData } = useGetData<HelperResponse>("/get/houses/all");
 
-    const {
-        mutate,
-        isPending: submitIsPending,
-        isSuccess,
-        isError,
-        error,
-    } = usePostData("/create/stock/item/reservation");
+    const { mutate, isPending: submitIsPending } = usePostData(
+        "/create/stock/item/reservation"
+    );
     const { data: itemsListRes } = useGetData<{
         data: ItemInventoryForUse[];
     }>("/get/stock/items/to-use");
@@ -82,11 +78,18 @@ export function StockReservationDialog() {
         });
     }
 
-    const {
-        itemId: selectedItem,
-        houseId: selectedHouse,
-        quantity: allocatedQuantity,
-    } = form.watch();
+    const selectedItem = useWatch({
+        control: form.control,
+        name: "itemId",
+    });
+    const selectedHouse = useWatch({
+        control: form.control,
+        name: "houseId",
+    });
+    const allocatedQuantity = useWatch({
+        control: form.control,
+        name: "quantity",
+    });
 
     const selectedItemDetails = itemsList.find(
         (i) => i.item_id === selectedItem
@@ -107,27 +110,21 @@ export function StockReservationDialog() {
     const warehouseAfterAllocation = warehouseStock - allocateQty;
     const houseReservedAfterAllocation = currentHouseReserved + allocateQty;
 
-    /* ---------------- Effects ---------------- */
-
-    useEffect(() => {
-        if (isSuccess) {
-            toast.success("Stock reserved successfully!");
-            handleFormReset();
-            // setDialogOpen(false);
-        }
-
-        if (isError && error) {
-            toast.error(error.message || "Failed to save stock reservation");
-        }
-
-        // console.log()
-    }, [isSuccess, isError, error, form]);
-
     /* ---------------- Submit ---------------- */
 
     const onSubmit = (values: AddStockReservationInput) => {
         console.log(values);
-        mutate(values);
+        mutate(values, {
+            onSuccess: () => {
+                toast.success("Stock reserved successfully!");
+                handleFormReset();
+            },
+            onError: (error) => {
+                toast.error(
+                    error.message || "Failed to save stock reservation"
+                );
+            },
+        });
     };
 
     const onError = (errors: unknown) => {

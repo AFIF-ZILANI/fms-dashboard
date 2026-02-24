@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {
     Dialog,
     DialogContent,
@@ -11,7 +11,7 @@ import {
 } from "../ui/dialog";
 import { Button } from "../ui/button";
 import { Plus, RefreshCcw, Save } from "lucide-react";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useGetData, usePostData } from "@/lib/api-request";
 import {
@@ -59,13 +59,9 @@ export function RecordItemUsage() {
 
     const { data: helperData } = useGetData<HelperResponse>("/get/houses/all");
 
-    const {
-        mutate,
-        isPending: submitIsPending,
-        isSuccess,
-        isError,
-        error,
-    } = usePostData("/create/stock/item/consumption");
+    const { mutate, isPending: submitIsPending } = usePostData(
+        "/create/stock/item/consumption"
+    );
     const { data: itemsListRes } = useGetData<{
         data: ItemInventoryForUse[];
     }>("/get/stock/items/to-use");
@@ -82,11 +78,18 @@ export function RecordItemUsage() {
         });
     }
 
-    const {
-        itemId: selectedItem,
-        houseId: selectedHouse,
-        quantity: consumeQuantity,
-    } = form.watch();
+    const selectedItem = useWatch({
+        control: form.control,
+        name: "itemId",
+    });
+    const selectedHouse = useWatch({
+        control: form.control,
+        name: "houseId",
+    });
+    const consumeQuantity = useWatch({
+        control: form.control,
+        name: "quantity",
+    });
 
     const selectedItemDetails = itemsList.find(
         (i) => i.item_id === selectedItem
@@ -114,27 +117,19 @@ export function RecordItemUsage() {
     const totalAvailable = reservedStock + warehouseStock;
     const remainingTotalStock = totalAvailable - usedQty;
 
-    /* ---------------- Effects ---------------- */
-
-    useEffect(() => {
-        if (isSuccess) {
-            toast.success("Item usage recorded successfully!");
-            handleFormReset();
-            // setDialogOpen(false);
-        }
-
-        if (isError && error) {
-            toast.error(error.message || "Failed to record item usage");
-        }
-
-        // console.log()
-    }, [isSuccess, isError, error, form]);
-
     /* ---------------- Submit ---------------- */
 
     const onSubmit = (values: RecordItemUsageInput) => {
         console.log(values);
-        mutate(values);
+        mutate(values, {
+            onSuccess: () => {
+                toast.success("Item usage recorded successfully!");
+                handleFormReset();
+            },
+            onError: (error) => {
+                toast.error(error.message || "Failed to record item usage");
+            },
+        });
     };
 
     const onError = (errors: unknown) => {

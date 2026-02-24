@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 
 import { Plus, RefreshCcw, Save } from "lucide-react";
 import { toast } from "sonner";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -64,7 +64,7 @@ export function AddWeightRecordDialog() {
     /* ---------------- Data ---------------- */
 
     const { data: helperData, isFetching: helperIsFetching } =
-        useGetData<HelperResponse>("/get/houses");
+        useGetData<HelperResponse>("/get/houses/running");
 
     const {
         mutate,
@@ -75,9 +75,12 @@ export function AddWeightRecordDialog() {
     } = usePostData("/create/record/weight");
 
     const houses = helperData?.data.houses;
-    console.log(houses);
+    // console.log(houses);
 
-    const selectedHouseId = form.watch("houseId");
+    const selectedHouseId = useWatch({
+        control: form.control,
+        name: "houseId",
+    });
 
     /* ---------------- Effects ---------------- */
 

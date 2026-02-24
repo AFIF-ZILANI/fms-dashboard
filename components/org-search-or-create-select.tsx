@@ -74,8 +74,8 @@ export function OrganizationSelectAsync({
 
                 const json = await res.json();
                 setItems(json.data ?? []);
-            } catch (err: any) {
-                if (err?.name !== "AbortError") {
+            } catch (err: unknown) {
+                if ((err as Error).name !== "AbortError") {
                     setItems([]);
                 }
             } finally {
@@ -123,8 +123,10 @@ export function OrganizationSelectAsync({
             // reset UI
             setQuery("");
             setOpen(false);
-        } catch (err: any) {
-            toast.error(err?.message ?? "Failed to create organization");
+        } catch (err: unknown) {
+            toast.error(
+                (err as Error).message ?? "Failed to create organization"
+            );
         } finally {
             setCreatingNew(false);
         }
