@@ -9,6 +9,7 @@ import {
     PopoverContent,
     PopoverTrigger,
 } from "@/components/ui/popover";
+import { Item } from "@/types/purchase";
 
 type Props = {
     value?: string;
@@ -33,7 +34,7 @@ export function ItemSelectCell({ value, onSelect }: Props) {
                 {isLoading && <p className="text-sm">Loading...</p>}
 
                 <div className="max-h-60 overflow-y-auto">
-                    {data?.data.map((item: any) => (
+                    {data?.data.map((item: Item) => (
                         <button
                             key={item.id}
                             className="w-full text-left px-2 py-1 hover:bg-muted rounded"
