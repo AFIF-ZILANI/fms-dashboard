@@ -1,7 +1,7 @@
 "use client";
 
 import { CalendarIcon, Plus, RefreshCcw, Save } from "lucide-react";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
     Dialog,
@@ -31,7 +31,7 @@ import {
 } from "@/components/ui/form";
 
 import { Spinner } from "../ui/spinner";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useGetData, usePostData } from "@/lib/api-request";
 import { toast } from "sonner";
 import {
@@ -68,37 +68,31 @@ export function AddBatchAllocationDialog() {
         },
     });
 
-    const {
-        mutate,
-        isPending: submitIsPending,
-        isSuccess,
-        isError,
-        error,
-    } = usePostData("/create/batch/allocation");
-
-    /* ---------------- Effects ---------------- */
-
-    useEffect(() => {
-        if (isSuccess) {
-            toast.success("Batch allocated successfully!");
-            form.reset();
-            setDialogOpen(false);
-        }
-
-        if (isError && error) {
-            toast.error(error.message || "Failed to allocate batch");
-        }
-    }, [isSuccess, isError, error, form]);
+    const { mutate, isPending: submitIsPending } = usePostData(
+        "/create/batch/allocation"
+    );
 
     const onSubmit = (values: BatchAllocationInput) => {
-        mutate(values);
+        mutate(values, {
+            onSuccess: () => {
+                toast.success("Batch allocated successfully!");
+                form.reset();
+                setDialogOpen(false);
+            },
+            onError: (error) => {
+                toast.error(error.message || "Failed to allocate batch");
+            },
+        });
     };
 
     const onError = (error: unknown) => {
         console.error(error);
     };
 
-    const selectedHouseId = form.watch("fromHouseId");
+    const selectedHouseId = useWatch({
+        control: form.control,
+        name: "fromHouseId",
+    });
     const selectedHouse =
         !runningHousesIsLoading && runningHousesData.length
             ? runningHousesData.find((house) => house.id === selectedHouseId)

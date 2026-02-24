@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Search } from "lucide-react";
+import { Search } from "lucide-react";
 import { UserRole } from "@/app/generated/prisma/enums";
 import { formatEnums } from "@/lib/strings";
 import { Skeleton } from "./ui/skeleton";

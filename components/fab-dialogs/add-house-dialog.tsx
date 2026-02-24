@@ -44,8 +44,8 @@ export function AddHouseDialog() {
         defaultValues: {
             houseNumber: 0,
             name: "",
-            type: undefined
-        }
+            type: undefined,
+        },
     });
 
     const {
@@ -60,13 +60,13 @@ export function AddHouseDialog() {
 
     useEffect(() => {
         if (isSuccess) {
-            toast.success("Weight record saved successfully!");
+            toast.success("House added successfully!");
             form.reset();
             // setDialogOpen(false);
         }
 
         if (isError && error) {
-            toast.error(error.message || "Failed to save weight record");
+            toast.error(error.message || "Failed to add house");
         }
     }, [isSuccess, isError, error, form]);
 

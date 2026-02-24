@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { paymentInstrumentSchema } from "@/schemas/payment.schem";
 import { UserRole, PaymentMethod, MfsType } from "@/app/generated/prisma/enums";
 
@@ -44,13 +44,9 @@ type PaymentInstrumentForm = z.infer<typeof paymentInstrumentSchema>;
 
 export function AddPaymentInstrumentDialog() {
     const [owner] = useState<ActorSearchItem | null>(null);
-    const {
-        isError,
-        isPending: submitIsPending,
-        isSuccess,
-        error,
-        mutate,
-    } = usePostData("/create/payment/instrument");
+    const { isPending: submitIsPending, mutate } = usePostData(
+        "/create/payment/instrument"
+    );
     const [open, setOpen] = useState(false);
 
     const form = useForm<PaymentInstrumentForm>({
@@ -67,25 +63,28 @@ export function AddPaymentInstrumentDialog() {
         },
     });
 
-    /* ---------------- Effects ---------------- */
-
-    useEffect(() => {
-        if (isSuccess) {
-            toast.success("Payment Instrument saved successfully!");
-            form.reset();
-            setOpen(false);
-        }
-
-        if (isError && error) {
-            toast.error(error.message || "Failed to save payment instrument");
-        }
-    }, [isSuccess, isError, error, form]);
-
-    const watchType = form.watch("type");
-    const watchOwnerType = form.watch("ownerType");
+    const watchType = useWatch({
+        control: form.control,
+        name: "type",
+    });
+    const watchOwnerType = useWatch({
+        control: form.control,
+        name: "ownerType",
+    });
 
     const onSubmit = async (values: PaymentInstrumentForm) => {
-        mutate(values);
+        mutate(values, {
+            onSuccess: () => {
+                toast.success("Payment Instrument saved successfully!");
+                form.reset();
+                setOpen(false);
+            },
+            onError: (error) => {
+                toast.error(
+                    error.message || "Failed to save payment instrument"
+                );
+            },
+        });
     };
 
     useEffect(() => {

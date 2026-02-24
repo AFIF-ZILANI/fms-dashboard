@@ -15,9 +15,7 @@ import {
     ChevronRight,
     ChevronsLeft,
     ChevronsRight,
-    ChevronRightIcon,
     WarehouseIcon as Warehouse,
-    Bookmark,
     PackageCheck,
 } from "lucide-react";
 import { getItemsCardMetaData, getStatusBadge } from "@/lib/utils";

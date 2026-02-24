@@ -9,7 +9,6 @@ import Link from "next/link";
 import { AttentionItem } from "@/types/inventory/type";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatEnums } from "@/lib/strings";
-import { formatDate } from "@/lib/dateUtils";
 
 type NeedsAttentionProps = {
     items: AttentionItem[];
@@ -22,7 +21,7 @@ export function NeedsAttention({
     items,
     onBuy,
     isLoading,
-    maxItemsToShow = 3,
+    maxItemsToShow = 4,
 }: NeedsAttentionProps) {
     const criticalItems = items.slice(0, maxItemsToShow);
     const hasMore = items.length > maxItemsToShow;
@@ -69,7 +68,7 @@ export function NeedsAttention({
                         criticalItems.map((item) => (
                             <div
                                 key={item.id}
-                                className=" flex justify-between p-4 space-y-4 rounded-lg bg-white border border-transparent"
+                                className=" flex justify-between p-4 space-y-4 gap-4 rounded-lg bg-white border border-transparent"
                             >
                                 {/* Item info */}
                                 <div className="flex gap-12">
@@ -78,6 +77,7 @@ export function NeedsAttention({
                                             <h3 className="font-medium text-sm sm:text-base leading-snug mb-1">
                                                 {item.name}
                                             </h3>
+                                            {/* <p >{item.suggestionMessage}</p> */}
                                             <p className="text-xs sm:text-sm font-medium text-muted-foreground">
                                                 {item.stock}{" "}
                                                 {formatEnums(item.unit)}
@@ -108,7 +108,7 @@ export function NeedsAttention({
                                             item.status === "LOW" &&
                                                 "bg-amber-500 hover:bg-amber-600 text-white",
                                             item.status === "NOT_INITIALIZED" &&
-                                                "bg-black hover:bg-black/80 text-white"
+                                                "bg-black/70 hover:bg-black/80 text-white"
                                         )}
                                     >
                                         {formatEnums(item.status)}
@@ -131,6 +131,7 @@ export function NeedsAttention({
                         ))}
                     {isLoading && (
                         <div className="space-y-3">
+                            <Skeleton className="w-full h-24" />
                             <Skeleton className="w-full h-24" />
                             <Skeleton className="w-full h-24" />
                             <Skeleton className="w-full h-24" />

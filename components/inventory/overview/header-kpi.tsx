@@ -15,7 +15,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 type State = "danger" | "warning" | "safe" | "neutral" | "muted";
 
-type CardConfig = {
+export type CardConfig = {
     label: string;
     value: string | number;
     icon: LucideIcon;
@@ -38,11 +38,11 @@ export function InventoryKPIHeader({
     data: OverviewKPIProps;
     isLoading: boolean;
 }) {
-    const cards = [
+    const cards: CardConfig[] = [
         {
             label: "Out of stock",
             value: outOfStock,
-            icon: PackageX,
+            icon: PackageX as LucideIcon,
             state: outOfStock === 0 ? "safe" : "danger",
             helper: outOfStock === 0 ? "All good" : undefined,
             description: "Items with zero quantity",
@@ -50,7 +50,7 @@ export function InventoryKPIHeader({
         {
             label: "Low stock",
             value: lowStock,
-            icon: AlertTriangle,
+            icon: AlertTriangle as LucideIcon,
             state: lowStock > 3 ? "warning" : "neutral",
             helper: lowStock === 0 ? "All good" : undefined,
             description: "Items below minimum threshold",
@@ -58,50 +58,59 @@ export function InventoryKPIHeader({
         {
             label: "Total items",
             value: totalItems,
-            icon: Boxes,
+            icon: Boxes as LucideIcon,
             state: "neutral",
             description: "Total inventory quantity",
         },
         {
             label: "Movements today",
             value: movementsToday,
-            icon: Repeat,
+            icon: Repeat as LucideIcon,
             state: movementsToday === 0 ? "muted" : "neutral",
             helper: movementsToday === 0 ? "No activity" : undefined,
             description: "Stock movements in the last 24 hours",
         },
 
-        // ⏳ Expiring soon (ONLY if provided)
-        expiringSoon !== undefined && {
-            label: "Expiring soon",
-            value: expiringSoon,
-            icon: AlertTriangle,
-            state: expiringSoon > 0 ? "warning" : "neutral",
-            helper: lowStock === 0 ? "All good" : undefined,
-            description: "Items expiring within 30 days",
-        },
+        ...(expiringSoon !== undefined
+            ? [
+                  {
+                      label: "Expiring soon",
+                      value: expiringSoon,
+                      icon: AlertTriangle as LucideIcon,
+                      state: (expiringSoon > 0
+                          ? "warning"
+                          : "neutral") as State,
+                      helper: lowStock === 0 ? "All good" : undefined,
+                      description: "Items expiring within 30 days",
+                  } satisfies CardConfig,
+              ]
+            : []),
 
-        inventoryValue !== undefined && {
-            label: "Inventory value",
-            value: `৳${formatCompact(inventoryValue)}`,
-            icon: Wallet,
-            state: "neutral",
-            description: "Total inventory monetary value",
-        },
-    ].filter((c): c is NonNullable<typeof c> => Boolean(c));
+        ...(inventoryValue !== undefined
+            ? [
+                  {
+                      label: "Inventory value",
+                      value: `৳${formatCompact(inventoryValue)}`,
+                      icon: Wallet as LucideIcon,
+                      state: "neutral" as State,
+                      description: "Total inventory monetary value",
+                  } satisfies CardConfig,
+              ]
+            : []),
+    ];
 
     return (
         <section className="w-full">
             {/* Mobile: horizontal scroll */}
             {isLoading && (
-                <div className="flex gap-2">
+                <div className="flex gap-2 md:hidden">
                     <Skeleton className="h-70 w-60" />
                     <Skeleton className="h-70 w-28" />
                 </div>
             )}
             {!isLoading && (
                 <div className="flex gap-3 overflow-x-auto pb-2 md:hidden">
-                    {cards.map((card: any, i) => (
+                    {cards.map((card, i) => (
                         <KpiCard key={i} {...card} />
                     ))}
                 </div>
@@ -110,7 +119,7 @@ export function InventoryKPIHeader({
             {/* Desktop: 2 rows × 3 columns */}
             <div className="hidden md:grid grid-cols-3 gap-4">
                 {!isLoading &&
-                    cards.map((card: any, i) => <KpiCard key={i} {...card} />)}
+                    cards.map((card, i) => <KpiCard key={i} {...card} />)}
 
                 {isLoading && (
                     <>
