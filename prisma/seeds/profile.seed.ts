@@ -1,17 +1,17 @@
 import { faker } from "@faker-js/faker";
 import { UserRole } from "@/app/generated/prisma/enums";
 
-type ProfileInput = {
-    id: string;
-    email: string | null;
-    name: string;
-    mobile: string;
-    address: string | null;
-    avatar_id: string | null;
-    role: UserRole;
-    created_at: Date;
-    updated_at: Date;
-};
+// type ProfileInput = {
+//     id: string;
+//     email: string | null;
+//     name: string;
+//     mobile: string;
+//     address: string | null;
+//     avatar_id: string | null;
+//     role: UserRole;
+//     created_at: Date;
+//     updated_at: Date;
+// };
 
 export function generateProfiles(count: number, role: UserRole) {
     if (count <= 0) return [];

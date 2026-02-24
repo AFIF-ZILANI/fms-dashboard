@@ -1,5 +1,5 @@
 import { Prisma } from "@/app/generated/prisma/client";
-import { BirdBreeds, ResourceCategories, UserRole } from "@/app/generated/prisma/enums";
+import { BirdBreeds, UserRole } from "@/app/generated/prisma/enums";
 import { Phase } from "@/config/bird-man.config";
 
 export interface ProfileGraphProps {
