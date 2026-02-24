@@ -4,9 +4,8 @@ import { Button } from "@/components/ui/button";
 import { useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
 import { Plus } from "lucide-react";
-import { AddStockItem } from "@/components/fab-dialogs/add-stock-item-dialog";
-import { AddMedicineStock } from "@/components/fab-dialogs/add-medicine-stock-dialog";
 import { AddPaymentInstrumentDialog } from "@/components/fab-dialogs/add-payment-instrument.dialog";
+import { AddItemPurchaseDialog } from "@/components/fab-dialogs/add-item-purchase.dialog";
 
 export default function FAB() {
     const [open, setOpen] = useState(false);
@@ -60,6 +59,7 @@ export default function FAB() {
                     } space-y-2 flex flex-col`}
                 >
                     <AddPaymentInstrumentDialog />
+                    <AddItemPurchaseDialog />
                 </div>
             </div>
 

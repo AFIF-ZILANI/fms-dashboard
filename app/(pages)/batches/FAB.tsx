@@ -8,6 +8,7 @@ import { AddWeightRecordDialog } from "@/components/fab-dialogs/add-weight-dialo
 import { AddHouseDialog } from "@/components/fab-dialogs/add-house-dialog";
 import { AddEventDialog } from "@/components/fab-dialogs/add-event-dialog";
 import { AddBatchDialog } from "@/components/fab-dialogs/add-batch-dialog";
+import { AddBatchAllocationDialog } from "@/components/fab-dialogs/add-batch-allocation.dialog";
 
 export default function FAB() {
     const [open, setOpen] = useState(false);
@@ -62,6 +63,7 @@ export default function FAB() {
                 >
                     <AddBatchDialog />
                     <AddEventDialog />
+                    <AddBatchAllocationDialog />
                     <AddWeightRecordDialog />
                     <AddHouseDialog />
                 </div>
