@@ -6,7 +6,7 @@ import { InventoryTable } from "@/components/inventory/overview/desktop-items-ta
 import { InventoryMobileList } from "@/components/inventory/overview/mobile-items-list";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import {
     Select,
     SelectContent,
@@ -79,7 +79,7 @@ export default function Page() {
     }>("/get/stock/items/overview-kpi");
     const data = itemsDataRes?.data;
     const items = data?.items ?? [];
-    let kpiData: OverviewKPIProps = kpiDataRes
+    const kpiData: OverviewKPIProps = kpiDataRes
         ? kpiDataRes.data
         : {
               outOfStock: 0,

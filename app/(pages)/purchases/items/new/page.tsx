@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 
@@ -67,18 +67,22 @@ import {
 } from "@/schemas/purchase-items.schema";
 import { useGetData, usePostData } from "@/lib/api-request";
 import { Label } from "@/components/ui/label";
-import { Item } from "@/types/purchase";
 import { Badge } from "@/components/ui/badge";
-import { formatCurrencyInBDT } from "@/lib/strings";
+import {
+    formatCurrencyInBDT,
+    formatEnums,
+    TooltipCreator,
+} from "@/lib/strings";
 import { toast } from "sonner";
 import { Spinner } from "@/components/ui/spinner";
 import { useRouter } from "next/navigation";
 import { InitialStockItemForm } from "@/components/fab-dialogs/add-initial-stock-item.dialog";
+import { ItemInventorySummary } from "@/types";
 
 const ADMIN_ID = "35204ae0-a642-4bbb-996b-c8b800fc0643";
 
 interface ItemsListResponse {
-    data: Item[];
+    data: ItemInventorySummary[];
 }
 
 interface InstrumentsResponse {
@@ -91,6 +95,8 @@ export default function NewPurchasePage() {
     const { data: itemsListRes } = useGetData<ItemsListResponse>(
         "/get/stock/items/all"
     );
+
+    console.log(itemsListRes);
 
     const { mutate, isError, error, isSuccess, isPending } = usePostData(
         "/create/purchase/item"
@@ -154,9 +160,18 @@ export default function NewPurchasePage() {
         [rows]
     );
 
-    const discount = Number(form.watch("discount")) || 0;
-    const transportCost = Number(form.watch("transportCost")) || 0;
-    const grandTotal = subtotal - (subtotal * discount) / 100 + transportCost;
+    const discount = useWatch({
+        control: form.control,
+        name: "discount",
+    });
+    const transportCost = useWatch({
+        control: form.control,
+        name: "transportCost",
+    });
+    const grandTotal =
+        subtotal -
+        (subtotal * Number(discount ?? 0)) / 100 +
+        Number(transportCost ?? 0);
 
     useEffect(() => {
         if (!supplierId) return;
@@ -191,7 +206,7 @@ export default function NewPurchasePage() {
         if (paymentStatus === PaymentStatus.UNPAID) {
             form.setValue("payment", undefined);
         }
-    }, [paymentStatus, subtotal, discount, transportCost, form]);
+    }, [paymentStatus, subtotal, discount, transportCost, form, grandTotal]);
 
     useEffect(() => {
         const items = rows.map((r) => ({
@@ -215,7 +230,7 @@ export default function NewPurchasePage() {
         if (isError) {
             toast.error(error.message || "Failed to create purchase");
         }
-    }, [isSuccess, form, isError, error]);
+    }, [isSuccess, form, isError, error, router]);
 
     const columns: ColumnDef<
         Partial<PurchaseItemInput> & { tempId?: string }
@@ -227,7 +242,9 @@ export default function NewPurchasePage() {
                 <Select
                     value={row.original.itemId || ""}
                     onValueChange={(v) => {
-                        const selectedItem = itemsList.find((i) => i.id === v);
+                        const selectedItem = itemsList.find(
+                            (i) => i.item_id === v
+                        );
                         console.log(row.original);
                         updateRow(row.original.tempId!, {
                             itemId: v,
@@ -240,11 +257,18 @@ export default function NewPurchasePage() {
                     </SelectTrigger>
                     <SelectContent>
                         {itemsList.map((item) => (
-                            <SelectItem key={item.id} value={item.id}>
+                            <SelectItem key={item.item_id} value={item.item_id}>
                                 <span className="font-semibold">
                                     {item.name}
                                 </span>{" "}
-                                - <span>{item.company || "Unknown"}</span>-
+                                -{" "}
+                                <span>
+                                    {TooltipCreator({
+                                        text: item.company || "Unknown Company",
+                                        size: 20,
+                                    })}
+                                </span>
+                                -
                                 <Badge variant="outline" className="ml-2">
                                     {item.category}
                                 </Badge>{" "}
@@ -257,43 +281,13 @@ export default function NewPurchasePage() {
         {
             id: "quantity",
             header: "Quantity",
-            cell: ({ row }) => {
-                const [value, setValue] = useState<string>(
-                    String(row.original.quantity ?? "")
-                );
-
-                useEffect(() => {
-                    setValue(String(row.original.quantity ?? ""));
-                }, [row.original.quantity]);
-
-                return (
-                    <Input
-                        inputMode="decimal"
-                        placeholder="e.g. 10.5"
-                        value={value}
-                        onChange={(e) => {
-                            let v = e.target.value;
-
-                            if (!/^\d*\.?\d*$/.test(v)) return;
-
-                            if (/^0\d+/.test(v)) {
-                                v = v.replace(/^0+/, "");
-                            }
-
-                            if (v.startsWith(".")) {
-                                v = "0" + v;
-                            }
-
-                            setValue(v);
-                        }}
-                        onBlur={() => {
-                            updateRow(row.original.tempId!, {
-                                quantity: value,
-                            });
-                        }}
-                    />
-                );
-            },
+            cell: ({ row }) => (
+                <QuantityCell
+                    quantity={String(row.original.quantity ?? "")}
+                    tempId={row.original.tempId!}
+                    updateRow={updateRow}
+                />
+            ),
         },
         {
             id: "unit",
@@ -307,43 +301,13 @@ export default function NewPurchasePage() {
         {
             id: "unitPrice",
             header: "Unit Price (৳)",
-            cell: ({ row }) => {
-                const [value, setValue] = useState<string>(
-                    String(row.original.unitPrice ?? "")
-                );
-
-                useEffect(() => {
-                    setValue(String(row.original.unitPrice ?? ""));
-                }, [row.original.unitPrice]);
-
-                return (
-                    <Input
-                        inputMode="decimal"
-                        placeholder="e.g. 10.5"
-                        value={value}
-                        onChange={(e) => {
-                            let v = e.target.value;
-
-                            if (!/^\d*\.?\d*$/.test(v)) return;
-
-                            if (/^0\d+/.test(v)) {
-                                v = v.replace(/^0+/, "");
-                            }
-
-                            if (v.startsWith(".")) {
-                                v = "0" + v;
-                            }
-
-                            setValue(v);
-                        }}
-                        onBlur={() => {
-                            updateRow(row.original.tempId!, {
-                                unitPrice: value,
-                            });
-                        }}
-                    />
-                );
-            },
+            cell: ({ row }) => (
+                <UnitPriceCell
+                    unitPrice={String(row.original.unitPrice ?? "")}
+                    tempId={row.original.tempId!}
+                    updateRow={updateRow}
+                />
+            ),
         },
         {
             id: "total",
@@ -372,8 +336,6 @@ export default function NewPurchasePage() {
             ),
         },
     ];
-
-    // useEffect(() => console.log(rows), [rows]);
 
     const table = useReactTable({
         data: rows,
@@ -758,7 +720,9 @@ export default function NewPurchasePage() {
                                                                     key={m}
                                                                     value={m}
                                                                 >
-                                                                    {m}
+                                                                    {formatEnums(
+                                                                        m
+                                                                    )}
                                                                 </SelectItem>
                                                             ))}
                                                         </SelectContent>
@@ -1013,24 +977,109 @@ export default function NewPurchasePage() {
 
                     <div className="flex justify-between">
                         <div className="flex gap-4">
-                        <Button type="submit" disabled={isPending}>
-                            {isPending ? <Spinner /> : <Save />}
-                            {isPending ? "Saving purchase" : "Save Purchase"}
-                        </Button>
-                        <Button
-                            type="button"
-                            variant="outline"
-                            onClick={() => router.back()}
-                        >
-                            Cancel
-                        </Button>
-                    </div>
-                    {itemsList.length && (
+                            <Button type="submit" disabled={isPending}>
+                                {isPending ? <Spinner /> : <Save />}
+                                {isPending
+                                    ? "Saving purchase"
+                                    : "Save Purchase"}
+                            </Button>
+                            <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => router.back()}
+                            >
+                                Cancel
+                            </Button>
+                        </div>
+                        {itemsList.length ? (
                             <InitialStockItemForm items={itemsList} />
-                        )}
+                        ) : null}
                     </div>
                 </form>
             </Form>
         </div>
+    );
+}
+
+type QuantityCellProps = {
+    quantity: string;
+    tempId: string;
+    updateRow: (tempId: string, data: { quantity: string }) => void;
+};
+
+type UnitPriceCellProps = {
+    unitPrice: string;
+    tempId: string;
+    updateRow: (tempId: string, data: { unitPrice: string }) => void;
+};
+
+function QuantityCell({ quantity, updateRow, tempId }: QuantityCellProps) {
+    const [value, setValue] = useState<string>(quantity);
+
+    useEffect(() => {
+        setValue(quantity);
+    }, [quantity]);
+
+    return (
+        <Input
+            inputMode="decimal"
+            placeholder="e.g. 10.5"
+            value={value}
+            onChange={(e) => {
+                let v = e.target.value;
+
+                if (!/^\d*\.?\d*$/.test(v)) return;
+
+                if (/^0\d+/.test(v)) {
+                    v = v.replace(/^0+/, "");
+                }
+
+                if (v.startsWith(".")) {
+                    v = "0" + v;
+                }
+
+                setValue(v);
+            }}
+            onBlur={() => {
+                updateRow(tempId, {
+                    quantity: value,
+                });
+            }}
+        />
+    );
+}
+
+function UnitPriceCell({ unitPrice, tempId, updateRow }: UnitPriceCellProps) {
+    const [value, setValue] = useState<string>(unitPrice);
+
+    useEffect(() => {
+        setValue(unitPrice);
+    }, [unitPrice]);
+    return (
+        <Input
+            inputMode="decimal"
+            placeholder="e.g. 10.5"
+            value={value}
+            onChange={(e) => {
+                let v = e.target.value;
+
+                if (!/^\d*\.?\d*$/.test(v)) return;
+
+                if (/^0\d+/.test(v)) {
+                    v = v.replace(/^0+/, "");
+                }
+
+                if (v.startsWith(".")) {
+                    v = "0" + v;
+                }
+
+                setValue(v);
+            }}
+            onBlur={() => {
+                updateRow(tempId, {
+                    unitPrice: value,
+                });
+            }}
+        />
     );
 }

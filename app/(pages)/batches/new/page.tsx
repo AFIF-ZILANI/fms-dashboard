@@ -50,7 +50,7 @@ interface SuppliersResponse {
 export default function AddBatchPage() {
     const router = useRouter();
     const { mutate, isSuccess, isPending, isError, error } =
-        usePostData("/batches/add");
+        usePostData("/create/batch/new");
     const {
         data,
         // isError: isGetSupplierError,
@@ -61,14 +61,12 @@ export default function AddBatchPage() {
     const form = useForm<AddBatchInput>({
         resolver: zodResolver(addBatchSchema),
         defaultValues: {
-            startingDate: new Date(),
-            breed: undefined,
+            date: new Date(),
+            initialQuantity: 0,
             suppliers: [
                 {
                     id: "",
                     quantity: 0,
-                    unitPrice: 0,
-                    qualityScore: 0,
                     deliveryDate: new Date(),
                 },
             ],
@@ -84,7 +82,7 @@ export default function AddBatchPage() {
     console.log(suppliersList);
 
     useEffect(() => {
-        if (isSuccess && !isError) {
+        if (isSuccess) {
             toast.success("Batch Created Successfully");
             form.reset();
             router.push("/batches");
@@ -96,14 +94,14 @@ export default function AddBatchPage() {
     }, [isError, isSuccess, isPending, error, form, router]);
 
     const onSubmit = (data: AddBatchInput) => {
-        console.log("Batch submitted:", data);
-        let initQ = 0;
-        data.suppliers.map((sup) => (initQ += sup.quantity));
-        console.log("[data]: ", { ...data, initialQuantity: initQ });
         mutate({
             ...data,
-            initialQuantity: initQ,
         });
+    };
+
+    const onError = (error: unknown) => {
+        console.error("Error submitting batch:", error);
+        toast.error("Failed to create batch");
     };
 
     return (
@@ -121,7 +119,7 @@ export default function AddBatchPage() {
 
             <Form {...form}>
                 <form
-                    onSubmit={form.handleSubmit(onSubmit)}
+                    onSubmit={form.handleSubmit(onSubmit, onError)}
                     className="space-y-6"
                 >
                     {/* ---------------- Batch Info Card ---------------- */}
@@ -138,12 +136,10 @@ export default function AddBatchPage() {
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <FormField
                                     control={form.control}
-                                    name="startingDate"
+                                    name="date"
                                     render={({ field }) => (
                                         <FormItem className="flex flex-col">
-                                            <FormLabel>
-                                                Batch Start Date
-                                            </FormLabel>
+                                            <FormLabel>Date</FormLabel>
                                             <Popover>
                                                 <PopoverTrigger asChild>
                                                     <FormControl>
@@ -151,7 +147,8 @@ export default function AddBatchPage() {
                                                             variant="outline"
                                                             className="pl-3 text-left font-normal bg-transparent"
                                                         >
-                                                            {field.value
+                                                            {field.value instanceof
+                                                            Date
                                                                 ? format(
                                                                       field.value,
                                                                       "PPP"
@@ -167,7 +164,12 @@ export default function AddBatchPage() {
                                                 >
                                                     <Calendar
                                                         mode="single"
-                                                        selected={field.value}
+                                                        selected={
+                                                            field.value instanceof
+                                                            Date
+                                                                ? field.value
+                                                                : new Date()
+                                                        }
                                                         onSelect={
                                                             field.onChange
                                                         }
@@ -184,7 +186,7 @@ export default function AddBatchPage() {
                                     name="breed"
                                     render={({ field }) => (
                                         <FormItem>
-                                            <FormLabel>Breed Type</FormLabel>
+                                            <FormLabel>Breed</FormLabel>
                                             <Select
                                                 onValueChange={field.onChange}
                                                 value={field.value}
@@ -224,30 +226,35 @@ export default function AddBatchPage() {
                                                 <div className="relative">
                                                     <Input
                                                         type="text"
-                                                        inputMode="numeric"
-                                                        placeholder="0"
-                                                        pattern="[0-9]*"
+                                                        inputMode="decimal"
+                                                        placeholder="e.g. 100"
                                                         className="pr-12"
-                                                        {...field}
                                                         value={
-                                                            field.value || ""
+                                                            (field.value as string) ??
+                                                            ""
                                                         }
                                                         onChange={(e) => {
-                                                            const val =
+                                                            let val =
                                                                 e.target.value;
-                                                            // Allow only digits
+
+                                                            // Prefix 0 if starts with "."
                                                             if (
-                                                                /^\d*$/.test(
+                                                                val.startsWith(
+                                                                    "."
+                                                                )
+                                                            ) {
+                                                                val = `0${val}`;
+                                                            }
+
+                                                            // Allow valid decimal typing only
+                                                            if (
+                                                                /^\d*\.?\d*$/.test(
                                                                     val
                                                                 )
                                                             ) {
                                                                 field.onChange(
-                                                                    val === ""
-                                                                        ? ""
-                                                                        : Number(
-                                                                              val
-                                                                          )
-                                                                );
+                                                                    val
+                                                                ); // ✅ STRING ONLY
                                                             }
                                                         }}
                                                     />
@@ -285,7 +292,6 @@ export default function AddBatchPage() {
                                         id: "",
                                         quantity: 0,
                                         unitPrice: 0,
-                                        qualityScore: 0,
                                         deliveryDate: new Date(),
                                     })
                                 }
@@ -322,7 +328,7 @@ export default function AddBatchPage() {
                                             render={({ field }) => (
                                                 <FormItem className="md:col-span-2">
                                                     <FormLabel>
-                                                        Supplier Name
+                                                        Supplier
                                                     </FormLabel>
                                                     <Select
                                                         onValueChange={
@@ -388,7 +394,8 @@ export default function AddBatchPage() {
                                                                     variant="outline"
                                                                     className="pl-3 text-left font-normal bg-transparent"
                                                                 >
-                                                                    {field.value
+                                                                    {field.value instanceof
+                                                                    Date
                                                                         ? format(
                                                                               field.value,
                                                                               "PPP"
@@ -405,7 +412,10 @@ export default function AddBatchPage() {
                                                             <Calendar
                                                                 mode="single"
                                                                 selected={
-                                                                    field.value
+                                                                    field.value instanceof
+                                                                    Date
+                                                                        ? field.value
+                                                                        : new Date()
                                                                 }
                                                                 onSelect={
                                                                     field.onChange
@@ -424,13 +434,13 @@ export default function AddBatchPage() {
                                             render={({ field }) => (
                                                 <FormItem>
                                                     <FormLabel>
-                                                        Number of Chicks
+                                                        Quantity
                                                     </FormLabel>
                                                     <FormControl>
                                                         <Input
                                                             type="text"
                                                             inputMode="numeric"
-                                                            placeholder=""
+                                                            placeholder="0"
                                                             pattern="[0-9]*"
                                                             {...field}
                                                             value={
@@ -478,91 +488,41 @@ export default function AddBatchPage() {
                                                             </span>
                                                             <Input
                                                                 type="text"
-                                                                inputMode="numeric"
-                                                                placeholder=""
-                                                                pattern="[0-9]*"
-                                                                className="pl-8"
-                                                                {...field}
+                                                                inputMode="decimal"
+                                                                placeholder="e.g. 100"
+                                                                className="pr-12 pl-6"
                                                                 value={
-                                                                    field.value ||
+                                                                    (field.value as string) ??
                                                                     ""
                                                                 }
                                                                 onChange={(
                                                                     e
                                                                 ) => {
-                                                                    const val =
+                                                                    let val =
                                                                         e.target
                                                                             .value;
-                                                                    // Allow only digits
+
+                                                                    // Prefix 0 if starts with "."
                                                                     if (
-                                                                        /^\d*$/.test(
+                                                                        val.startsWith(
+                                                                            "."
+                                                                        )
+                                                                    ) {
+                                                                        val = `0${val}`;
+                                                                    }
+
+                                                                    // Allow valid decimal typing only
+                                                                    if (
+                                                                        /^\d*\.?\d*$/.test(
                                                                             val
                                                                         )
                                                                     ) {
                                                                         field.onChange(
-                                                                            val ===
-                                                                                ""
-                                                                                ? ""
-                                                                                : Number(
-                                                                                      val
-                                                                                  )
-                                                                        );
-                                                                    }
-                                                                }}
-                                                            />
-                                                        </div>
-                                                    </FormControl>
-                                                    <FormMessage />
-                                                </FormItem>
-                                            )}
-                                        />
-                                        <FormField
-                                            control={form.control}
-                                            name={`suppliers.${index}.qualityScore`}
-                                            render={({ field }) => (
-                                                <FormItem>
-                                                    <FormLabel>
-                                                        Quality Score
-                                                    </FormLabel>
-                                                    <FormControl>
-                                                        <div className="relative">
-                                                            <Input
-                                                                type="text"
-                                                                inputMode="numeric"
-                                                                placeholder=""
-                                                                pattern="[0-9]*"
-                                                                className="pr-16"
-                                                                {...field}
-                                                                value={
-                                                                    field.value ||
-                                                                    ""
-                                                                }
-                                                                onChange={(
-                                                                    e
-                                                                ) => {
-                                                                    const val =
-                                                                        e.target
-                                                                            .value;
-                                                                    // Allow only digits
-                                                                    if (
-                                                                        /^\d*$/.test(
                                                                             val
-                                                                        )
-                                                                    ) {
-                                                                        field.onChange(
-                                                                            val ===
-                                                                                ""
-                                                                                ? ""
-                                                                                : Number(
-                                                                                      val
-                                                                                  )
-                                                                        );
+                                                                        ); // ✅ STRING ONLY
                                                                     }
                                                                 }}
                                                             />
-                                                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
-                                                                out of 10
-                                                            </span>
                                                         </div>
                                                     </FormControl>
                                                     <FormMessage />
