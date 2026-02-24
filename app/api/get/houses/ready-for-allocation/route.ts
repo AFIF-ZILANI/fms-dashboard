@@ -1,9 +1,8 @@
 import { errorResponse, response } from "@/lib/apiResponse";
 import { throwError } from "@/lib/error";
 import prisma from "@/lib/prisma";
-import { NextRequest } from "next/server";
 
-export async function GET(req: NextRequest) {
+export async function GET() {
     try {
         let data: { id: string; label: string }[] = [];
         await prisma.$transaction(async (tx) => {

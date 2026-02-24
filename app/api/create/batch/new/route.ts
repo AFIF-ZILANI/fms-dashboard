@@ -1,6 +1,7 @@
-import { AllocationReason, BatchStatus, Phase } from "@/app/generated/prisma/enums";
+import { AllocationReason, BatchStatus, FeedType, Phase } from "@/app/generated/prisma/enums";
 import { errorResponse, response } from "@/lib/apiResponse";
 import { generateBatchId, getLastBatchNumber } from "@/lib/batch-utils";
+import { createBatchHouseAllocationWithBalanceUpdate } from "@/lib/db";
 import { throwError } from "@/lib/error";
 import prisma from "@/lib/prisma";
 import { addBatchSchema } from "@/schemas/batch.schema";
@@ -11,7 +12,7 @@ import { NextRequest } from "next/server"; // Use NextResponse for proper respon
 export async function POST(req: NextRequest) {
     try {
         const body = await req.json();
-        const { initChicksAvgWT, initialQuantity, date, suppliers, breed } = addBatchSchema.parse(body);
+        const { initChicksAvgWT, initialQuantity, date, suppliers, breed, feedId } = addBatchSchema.parse(body);
 
         const runningBatches = await prisma.batches.findMany({
             where: {
@@ -89,24 +90,6 @@ export async function POST(req: NextRequest) {
                 },
             });
 
-            await tx.batchHouseAllocation.create({
-                data: {
-                    batch: {
-                        connect: {
-                            id: newBatch.id,
-                        },
-                    },
-                    to_house: {
-                        connect: {
-                            id: HOUSE_ID,
-                        },
-                    },
-                    reason: AllocationReason.INITIAL,
-                    quantity: newBatch.initial_quantity,
-                    occurred_at: date,
-                },
-            });
-
             await Promise.all(
                 suppliers.map((sup) =>
                     tx.batchSuppliers.create({
@@ -136,6 +119,15 @@ export async function POST(req: NextRequest) {
                 },
             });
 
+            await createBatchHouseAllocationWithBalanceUpdate(tx, {
+                batchId: newBatch.id,
+                fromHouseId: null,
+                toHouseId: HOUSE_ID,
+                quantity: newBatch.initial_quantity,
+                reason: AllocationReason.INITIAL,
+                occurredAt: date,
+            })
+
             await tx.consumption.updateMany({
                 where: {
                     house_id: HOUSE_ID,
@@ -151,6 +143,28 @@ export async function POST(req: NextRequest) {
                     batch_id: newBatch.id,
                 },
             });
+
+            const feed = await tx.item.findFirst({
+                where: {
+                    id: feedId,
+                },
+            });
+
+            if (!feed) {
+                throwError({
+                    message: "Invalid feed id",
+                    statusCode: 400,
+                });
+            }
+
+            await tx.batchFeedingProgram.create({
+                data: {
+                    batch_id: newBatch.id,
+                    item_id: feedId,
+                    feed_type: FeedType.STARTER,
+                    start_day: 1,
+                }
+            })
 
         });
 

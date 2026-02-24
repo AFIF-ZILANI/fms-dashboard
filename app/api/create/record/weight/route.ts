@@ -1,5 +1,6 @@
 import { errorResponse, response } from "@/lib/apiResponse";
 import { getFarmDateTime } from "@/lib/date-time";
+import { assertHouseHasRunningBatchFast } from "@/lib/db";
 import { throwError } from "@/lib/error";
 import { GetAdminID } from "@/lib/get-admin";
 import prisma from "@/lib/prisma";
@@ -28,32 +29,7 @@ export async function POST(req: NextRequest) {
                 });
             }
 
-            const allocation = await tx.batchHouseAllocation.findFirst({
-                where: {
-                    house_id: data.houseId,
-
-                    start_date: {
-                        lte: data.occurredAt,
-                    },
-
-                    OR: [
-                        { end_date: null },
-                        {
-                            end_date: {
-                                gte: data.occurredAt,
-                            },
-                        },
-                    ],
-                },
-                select: {
-                    batch: {
-                        select: {
-                            starting_date: true,
-                            id: true,
-                        },
-                    },
-                },
-            });
+            const allocation = await assertHouseHasRunningBatchFast(tx, data.houseId)
 
             if (!allocation) {
                 throwError({
@@ -67,7 +43,7 @@ export async function POST(req: NextRequest) {
                 data: {
                     batch: {
                         connect: {
-                            id: allocation.batch.id,
+                            id: allocation.batch_id,
                         },
                     },
                     house: {
