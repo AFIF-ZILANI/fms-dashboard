@@ -106,6 +106,8 @@ model Houses {
   consumptions Consumption[]
 
   stockReservations StockReservation[]
+
+  houseFeedInventories HouseFeedInventory[]
 }
 
 model BatchHouseAllocation {
@@ -166,6 +168,8 @@ model Profiles {
   weightRecords WeightRecords[]
 
   payments Payment[]
+
+  houseFeedInventories HouseFeedInventory[]
 }
 
 model Employees {
@@ -320,6 +324,7 @@ model Item {
   itemOrganizations    ItemOrganization[]
   stockReservations    StockReservation[]
   consumptions         Consumption[]
+  houseFeedInventories HouseFeedInventory[]
 
   @@index([name, category])
 }
@@ -363,6 +368,22 @@ model BatchFeedingProgram {
   item  Item    @relation(fields: [item_id], references: [id])
 
   @@index([batch_id, start_day, end_day])
+}
+
+model HouseFeedInventory {
+  id                 String  @id @default(uuid())
+  house_id           String
+  item_id            String
+  quantity_remaining Decimal @db.Decimal(10, 3)
+
+  last_modified_by String
+  updated_at       DateTime @updatedAt
+
+  house   Houses   @relation(fields: [house_id], references: [id], onDelete: Cascade)
+  item    Item     @relation(fields: [item_id], references: [id], onDelete: Cascade)
+  profile Profiles @relation(fields: [last_modified_by], references: [id])
+
+  @@unique([house_id, item_id])
 }
 
 model Sale {
