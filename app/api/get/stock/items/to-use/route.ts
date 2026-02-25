@@ -3,8 +3,8 @@ import { errorResponse, response } from "@/lib/apiResponse";
 import prisma from "@/lib/prisma";
 import { ItemInventoryForUse } from "@/types";
 export async function GET() {
-    try {
-        const data = await prisma.$queryRaw<ItemInventoryForUse[]>`
+  try {
+    const data = await prisma.$queryRaw<ItemInventoryForUse[]>`
 
       WITH location_stock AS (
         SELECT
@@ -82,14 +82,14 @@ export async function GET() {
       ORDER BY i.name ASC
     `;
 
-        console.log("[DATA] => ", JSON.stringify(data, null, 2));
+    // console.log("[DATA] => ", JSON.stringify(data, null, 2));
 
-        return response({
-            data,
-            message: "Ledger-based stock summary retrieved successfully",
-        });
+    return response({
+      data,
+      message: "Ledger-based stock summary retrieved successfully",
+    });
 
-    } catch (error) {
-        return errorResponse(error);
-    }
+  } catch (error) {
+    return errorResponse(error);
+  }
 }

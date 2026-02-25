@@ -154,11 +154,11 @@ export async function GET(req: Request) {
           : Prisma.sql`ORDER BY lm.occurred_at DESC NULLS LAST`;
     }
 
-    console.log("[OFFSET] => ", offset);
-    console.log("[SEARCH CONDITION] => ", searchCondition);
-    console.log("[CATEGORY CONDITION] => ", categoryCondition);
-    console.log("[STOCK CONDITION] => ", stockCondition);
-    console.log("[ORDER BY CLAUSE] => ", orderByClause);
+    // console.log("[OFFSET] => ", offset);
+    // console.log("[SEARCH CONDITION] => ", searchCondition);
+    // console.log("[CATEGORY CONDITION] => ", categoryCondition);
+    // console.log("[STOCK CONDITION] => ", stockCondition);
+    // console.log("[ORDER BY CLAUSE] => ", orderByClause);
     // ---------------- MAIN QUERY ----------------
 
     let items: StockItem[] = [];
@@ -225,13 +225,21 @@ latest_movement AS (
       sl.ref_type,
       sl.ref_id,
 
-      SUM(sl.quantity) AS total_quantity,
-      -- SUM(
-      --   CASE
-      --     WHEN sl.direction = 'IN' THEN sl.quantity
-      --     WHEN sl.direction = 'OUT' THEN -sl.quantity
-      --   END
-      -- ) AS total_quantity,
+     SUM(
+  CASE
+    WHEN sl.ref_type IN ('STOCK_RESERVATION')
+         AND sl.direction = 'OUT'
+      THEN sl.quantity
+
+    WHEN sl.ref_type NOT IN ('STOCK_RESERVATION')
+         AND sl.direction = 'IN'
+      THEN sl.quantity
+
+    WHEN sl.ref_type NOT IN ('STOCK_RESERVATION')
+         AND sl.direction = 'OUT'
+      THEN -sl.quantity
+  END
+) AS total_quantity,
       MAX(sl.occurred_at) AS occurred_at,
       MAX(sl.reason) AS reason,
 
@@ -351,10 +359,10 @@ WHERE 1=1
     });
     const total = countResult[0]?.total ?? 0;
 
-    // console.log("[ITEMS] => ", items);
+    console.log("[ITEMS] => ", items);
     // console.log("[COUNT RESULT] => ", countResult);
     // console.log("[TOTAL] => ", total);
-    // console.log("[FORMATED ITEMS] => ", formatedItems);
+    console.log("[FORMATED ITEMS] => ", formatedItems);
     return response({
       message: "Stock items retrieved successfully",
       data: {

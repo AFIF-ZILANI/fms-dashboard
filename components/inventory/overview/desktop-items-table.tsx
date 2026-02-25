@@ -287,15 +287,15 @@ const inventoryColumns: ColumnDef<InventoryItem>[] = [
                         +{row.original.movementQuantity}
                     </span>
                 );
+            } else if (row.original.movementType === "CONSUMPTION") {
+                return (
+                    <span className={`font-semibold text-red-500`}>
+                        {row.original.movementQuantity}
+                    </span>
+                );
             } else {
                 return (
-                    <span
-                        className={`font-semibold ${
-                            row.original.movementType === "TRANSFER"
-                                ? "text-yellow-500"
-                                : "text-red-500"
-                        }`}
-                    >
+                    <span className={`font-semibold text-yellow-500`}>
                         -{row.original.movementQuantity}
                     </span>
                 );

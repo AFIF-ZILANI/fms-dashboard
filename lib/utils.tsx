@@ -43,16 +43,16 @@ export function getItemsCardMetaData(type: StockReason, quantity: number) {
                 <span className="text-xs font-bold">+{quantity}</span>
             </div>
         );
+    } else if (type === "CONSUMPTION") {
+        return (
+            <div className={cn("flex gap-2 text-red-500")}>
+                <span className="text-xs font-medium">{formatEnums(type)}</span>
+                <span className="text-xs font-bold">{quantity}</span>
+            </div>
+        );
     } else {
         return (
-            <div
-                className={cn(
-                    "flex gap-2",
-                    type === "TRANSFER" || type === "RETURN"
-                        ? "text-yellow-500"
-                        : "text-red-500"
-                )}
-            >
+            <div className={cn("flex gap-2 text-yellow-500")}>
                 <span className="text-xs font-medium">{formatEnums(type)}</span>
                 <span className="text-xs font-bold">-{quantity}</span>
             </div>
