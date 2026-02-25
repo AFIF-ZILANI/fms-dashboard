@@ -154,10 +154,12 @@ model Profiles {
   mobile        String
   address       String?
   avatar_id     String?
-  role          UserRole
+  role_id       String
+  role          Role            @relation(fields: [role_id], references: [id])
   created_at    DateTime        @default(now())
   updated_at    DateTime        @updatedAt
   // online_contact ContactMethods[]
+  is_active     Boolean         @default(true)
   avatar        Avatars?        @relation(fields: [avatar_id], references: [id], onDelete: SetNull)
   employees     Employees?
   admins        Admins?
@@ -170,6 +172,10 @@ model Profiles {
   payments Payment[]
 
   houseFeedInventories HouseFeedInventory[]
+
+  auditLogs AuditLog[]
+
+  paymentInstruments PaymentInstrument[]
 }
 
 model Employees {
@@ -522,8 +528,8 @@ model Payment {
 model PaymentInstrument {
   id String @id @default(uuid())
 
-  owner_type UserRole // FARM / SUPPLIER / CUSTOMER
-  owner_id   String
+  profile_id String
+  profile    Profiles @relation(fields: [profile_id], references: [id])
 
   type  PaymentMethod // CASH / BANK / MOBILE
   label String // "Farm bKash", "Rahman Bank A/C"
@@ -616,6 +622,84 @@ model Alerts {
   created_at  DateTime          @default(now())
   issued_at   DateTime?         @db.Date
   resolved_at DateTime?         @db.Date
+}
+
+model Role {
+  id   String @id @default(cuid())
+  name String @unique
+
+  description String?
+
+  permissions RolePermission[]
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  profiles Profiles[]
+}
+
+model Permission {
+  id String @id @default(cuid())
+
+  name    String @unique
+  feature String
+  action  String
+
+  roles RolePermission[]
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+}
+
+model RolePermission {
+  role_id       String
+  permission_id String
+
+  role       Role       @relation(fields: [role_id], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permission_id], references: [id], onDelete: Cascade)
+
+  created_at DateTime @default(now())
+
+  @@id([role_id, permission_id])
+  @@index([role_id])
+  @@index([permission_id])
+}
+
+model Policy {
+  id String @id @default(cuid())
+
+  name        String  @unique
+  description String?
+
+  feature String
+  rule    Json
+
+  isActive Boolean @default(true)
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+}
+
+model AuditLog {
+  id String @id @default(cuid())
+
+  user_id  String
+  action   String
+  resource String
+
+  metadata Json?
+
+  ip_address String?
+  user_agent String?
+
+  created_at DateTime @default(now())
+
+  user Profiles @relation(fields: [user_id], references: [id])
+
+  @@index([user_id])
+  @@index([action])
+  @@index([resource])
+  @@index([created_at])
 }
 
 enum EmployeeRoleNames {
@@ -760,14 +844,6 @@ enum BatchStatus {
 enum Phase {
   BROODER
   GROWER
-}
-
-enum UserRole {
-  ADMIN
-  EMPLOYEE
-  CUSTOMER
-  SUPPLIER
-  DOCTOR
 }
 
 enum EventType {
