@@ -92,13 +92,13 @@ export async function GET(req: NextRequest) {
             mortality72H: 0,
             daysToSell: batch.expected_selling_date
                 ? Math.max(
-                      0,
-                      Math.ceil(
-                          (batch.expected_selling_date.getTime() -
-                              now.getTime()) /
-                              (1000 * 60 * 60 * 24)
-                      )
-                  )
+                    0,
+                    Math.ceil(
+                        (batch.expected_selling_date.getTime() -
+                            now.getTime()) /
+                        (1000 * 60 * 60 * 24)
+                    )
+                )
                 : 0,
 
             totalAliveBirdsGenaral: 0,
@@ -130,25 +130,25 @@ export async function GET(req: NextRequest) {
         // const maxAge = getMaxAge(batch.starting_date, new Date());
         const batchAge = getBatchAgeInDays(batch.starting_date);
 
-        const initialBirdsPerHouse = new Map<number, number>();
+        const initialBirdsPerHouse = new Map<string, number>();
 
         for (const a of allocations) {
-            initialBirdsPerHouse.set(a.house_id, a.quantity);
+            initialBirdsPerHouse.set(a.to_house_id!, a.quantity);
         }
 
         const mortalityByHouseAge = new Map<string, number>();
         const mortalityByHouseWeek = new Map<string, number>();
         const mortalityByAge = new Map<number, number>();
         const mortalityByWeek = new Map<number, number>();
-        const mortalityByHouseSum = new Map<number, number>();
+        const mortalityByHouseSum = new Map<string, number>();
 
         const feedByHouseAge = new Map<string, number>();
         const feedByAge = new Map<number, number>();
-        const feedByHouseSum = new Map<number, number>();
+        const feedByHouseSum = new Map<string, number>();
 
         const waterByHouseAge = new Map<string, number>();
         const waterByAge = new Map<number, number>();
-        const waterByHouseSum = new Map<number, number>();
+        const waterByHouseSum = new Map<string, number>();
 
         for (const e of events) {
             const thatAge = getBatchAgeInDays(
@@ -241,16 +241,16 @@ export async function GET(req: NextRequest) {
                 week,
                 prev
                     ? {
-                          avgWeight:
-                              (prev.avgWeight * prev.sampleSize +
-                                  wt * w.sample_size) /
-                              (prev.sampleSize + w.sample_size),
-                          sampleSize: prev.sampleSize + w.sample_size,
-                      }
+                        avgWeight:
+                            (prev.avgWeight * prev.sampleSize +
+                                wt * w.sample_size) /
+                            (prev.sampleSize + w.sample_size),
+                        sampleSize: prev.sampleSize + w.sample_size,
+                    }
                     : {
-                          avgWeight: wt,
-                          sampleSize: w.sample_size,
-                      }
+                        avgWeight: wt,
+                        sampleSize: w.sample_size,
+                    }
             );
 
             const existing = weightByAge.get(thatAge);
@@ -276,7 +276,7 @@ export async function GET(req: NextRequest) {
         }
 
         const aliveByHouseAge = new Map<string, number>();
-        const aliveByHouse = new Map<number, number>();
+        const aliveByHouse = new Map<string, number>();
         const aliveByAge = new Map<number, number>();
 
         for (const [houseId, initial] of initialBirdsPerHouse.entries()) {
