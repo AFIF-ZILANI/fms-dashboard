@@ -39,6 +39,11 @@ import { toast } from "sonner";
 import { Spinner } from "../ui/spinner";
 import { EventTypeArr, HouseEventEnum, HouseEventUnitEnum } from "@/types/enum";
 import { EVENT_UNIT_MAP, GetHouses, HouseEventType } from "@/types";
+import { LeftoverFeed } from "@/types/inventory/type";
+import { formatQty } from "@/lib/utils";
+import { formatTimeAgo } from "@/lib/dateUtils";
+import { Checkbox } from "../ui/checkbox";
+import { Label } from "../ui/label";
 
 interface HelperResponse {
     data: GetHouses;
@@ -46,10 +51,14 @@ interface HelperResponse {
 
 export function AddEventDialog() {
     const [dialogOpen, setDialogOpen] = useState(false);
+    const [usePreviousLeftover, setUsePreviousLeftover] = useState(true);
     const form = useForm<HouseEventFormInput>({
         resolver: zodResolver(addHouseEventSchema),
         defaultValues: {
             occurredAt: new Date(),
+            leftOverFeedQty: "",
+            usedLeftOverFeed: false,
+            quantity: "",
         },
     });
 
@@ -58,39 +67,55 @@ export function AddEventDialog() {
     const { data: helperData } = useGetData<HelperResponse>(
         "/get/houses/running"
     );
+    const { data: leftoverFeedData } = useGetData<{ data: LeftoverFeed[] }>(
+        "/get/leftover/feed"
+    );
 
     const { mutate, isPending: submitIsPending } = usePostData(
         "/create/record/event"
     );
 
     const houses = helperData?.data.houses;
-    // console.log(houses);
+    const leftover = leftoverFeedData?.data;
 
     const selectedHouseId = useWatch({
         control: form.control,
         name: "houseId",
     });
+
+    const feedAddedRaw = useWatch({
+        control: form.control,
+        name: "quantity",
+    });
+    const unit = useWatch({
+        control: form.control,
+        name: "unit",
+    });
+
+    function handleFormReset() {
+        form.reset({
+            houseId: "",
+            eventType: undefined,
+            quantity: "",
+            leftOverFeedQty: "",
+            usedLeftOverFeed: false,
+            occurredAt: new Date(),
+        });
+    }
+
     /* ---------------- Submit ---------------- */
 
     const onSubmit = (values: HouseEventFormInput) => {
-        // console.log(values);
-        const normalizedQuantity =
-            values.eventType === "FEED"
-                ? normalizeQuantity(
-                      values.quantity as number,
-                      values.unit as "KG" | "BAG"
-                  )
-                : values.quantity;
+        // console.log("VALUES", values);
         mutate(
             {
                 ...values,
-                quantity: normalizedQuantity,
-                unit: EVENT_UNIT_MAP[values.eventType].canonical,
+                usedLeftOverFeed: usePreviousLeftover,
             },
             {
                 onSuccess: () => {
                     toast.success("House event saved successfully!");
-                    form.reset();
+                    handleFormReset();
                     // setDialogOpen(false);
                 },
                 onError: (error) => {
@@ -109,8 +134,10 @@ export function AddEventDialog() {
 
         form.setValue("eventType", type as HouseEventEnum);
         form.setValue("unit", config.canonical as HouseEventUnitEnum);
-        form.setValue("quantity", 0);
+        form.setValue("quantity", "");
+        form.setValue("leftOverFeedQty", "");
     };
+
     const BAG_WEIGHT_KG = 50;
 
     function normalizeQuantity(quantity: number, unit: "KG" | "BAG"): number {
@@ -120,10 +147,33 @@ export function AddEventDialog() {
         return quantity;
     }
 
-    const selectedEventType = form.watch("eventType");
+    const selectedEventType = useWatch({
+        control: form.control,
+        name: "eventType",
+    });
+
     const allowedUnits = selectedEventType
         ? EVENT_UNIT_MAP[selectedEventType].uiUnits
         : [];
+
+    const leftoverThisHouse = leftover?.find(
+        (house) => house.house_id === selectedHouseId
+    );
+
+    const rawPreviousLeftover = Number(
+        leftoverThisHouse?.quantity_remaining || 0
+    );
+
+    const previousLeftover = usePreviousLeftover ? rawPreviousLeftover : 0;
+    const feedAdded =
+        selectedEventType === "FEED"
+            ? normalizeQuantity(
+                  Number(feedAddedRaw || 0),
+                  form.getValues("unit") as "KG" | "BAG"
+              )
+            : 0;
+
+    const calculatedConsumption = previousLeftover + feedAdded;
 
     return (
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
@@ -161,8 +211,10 @@ export function AddEventDialog() {
                                     <FormItem>
                                         <FormLabel>House</FormLabel>
                                         <Select
-                                            value={field.value}
-                                            onValueChange={field.onChange}
+                                            value={field.value || ""}
+                                            onValueChange={(val) =>
+                                                field.onChange(val || undefined)
+                                            }
                                         >
                                             <FormControl>
                                                 <SelectTrigger className="w-full">
@@ -251,7 +303,7 @@ export function AddEventDialog() {
 
                             <div className="grid grid-cols-7 gap-4">
                                 <div
-                                    className={`${allowedUnits.length > 1 ? "col-span-4" : "col-span-7"}`}
+                                    className={`${allowedUnits.length > 1 ? "col-span-4" : "col-span-7"} relative`}
                                 >
                                     {/* Event Quantity */}
                                     <FormField
@@ -266,7 +318,7 @@ export function AddEventDialog() {
                                                     <Input
                                                         type="text"
                                                         inputMode="decimal"
-                                                        placeholder="e.g. 100"
+                                                        placeholder="e.g. 50"
                                                         className="pr-12"
                                                         value={
                                                             (field.value as string) ??
@@ -276,7 +328,19 @@ export function AddEventDialog() {
                                                             let val =
                                                                 e.target.value;
 
-                                                            // Prefix 0 if starts with "."
+                                                            // If current value is "0" and user types a number,
+                                                            // replace instead of append
+                                                            if (
+                                                                field.value ===
+                                                                    "0" &&
+                                                                /^\d$/.test(val)
+                                                            ) {
+                                                                field.onChange(
+                                                                    val
+                                                                );
+                                                                return;
+                                                            }
+
                                                             if (
                                                                 val.startsWith(
                                                                     "."
@@ -285,7 +349,6 @@ export function AddEventDialog() {
                                                                 val = `0${val}`;
                                                             }
 
-                                                            // Allow valid decimal typing only
                                                             if (
                                                                 /^\d*\.?\d*$/.test(
                                                                     val
@@ -293,7 +356,7 @@ export function AddEventDialog() {
                                                             ) {
                                                                 field.onChange(
                                                                     val
-                                                                ); // ✅ STRING ONLY
+                                                                );
                                                             }
                                                         }}
                                                     />
@@ -306,6 +369,11 @@ export function AddEventDialog() {
                                             </FormItem>
                                         )}
                                     />
+                                    {selectedEventType !== "FEED" && (
+                                        <span className="absolute right-4 top-10 -translate-y-1/2 text-muted-foreground">
+                                            {unit}
+                                        </span>
+                                    )}
                                 </div>
 
                                 {allowedUnits.length > 1 && (
@@ -363,20 +431,172 @@ export function AddEventDialog() {
                                 )}
                             </div>
 
+                            {selectedEventType === "FEED" && (
+                                <div className="space-y-3">
+                                    <div className="flex items-center justify-between rounded-md border bg-muted/40 p-3 text-sm">
+                                        <div className="flex flex-col">
+                                            <div className="font-medium flex items-center gap-2">
+                                                <span>Previous Leftover</span>
+                                                <span className="text-xs text-muted-foreground">
+                                                    {formatTimeAgo(
+                                                        String(
+                                                            leftoverThisHouse?.updated_at
+                                                        )
+                                                    )}
+                                                </span>
+                                            </div>
+                                            <span className="text-xs text-muted-foreground">
+                                                {formatQty(rawPreviousLeftover)}{" "}
+                                                KG
+                                            </span>
+                                        </div>
+
+                                        <Label className="flex items-center gap-2 cursor-pointer">
+                                            <Checkbox
+                                                checked={usePreviousLeftover}
+                                                onCheckedChange={(e) =>
+                                                    setUsePreviousLeftover(
+                                                        e.valueOf()
+                                                            ? true
+                                                            : false
+                                                    )
+                                                }
+                                            />
+                                            <span>Fully Used</span>
+                                        </Label>
+                                    </div>
+                                    <div className="relative">
+                                        <FormField
+                                            control={form.control}
+                                            name="leftOverFeedQty"
+                                            render={({ field }) => (
+                                                <FormItem>
+                                                    <FormLabel>
+                                                        Current Leftover After
+                                                        Feeding
+                                                    </FormLabel>
+                                                    <FormControl>
+                                                        <Input
+                                                            type="text"
+                                                            inputMode="decimal"
+                                                            placeholder="e.g. 50"
+                                                            className="pr-12"
+                                                            value={
+                                                                (field.value as string) ??
+                                                                ""
+                                                            }
+                                                            onChange={(e) => {
+                                                                let val =
+                                                                    e.target
+                                                                        .value;
+
+                                                                // If current value is "0" and user types a number,
+                                                                // replace instead of append
+                                                                if (
+                                                                    field.value ===
+                                                                        "0" &&
+                                                                    /^\d$/.test(
+                                                                        val
+                                                                    )
+                                                                ) {
+                                                                    field.onChange(
+                                                                        val
+                                                                    );
+                                                                    return;
+                                                                }
+
+                                                                if (
+                                                                    val.startsWith(
+                                                                        "."
+                                                                    )
+                                                                ) {
+                                                                    val = `0${val}`;
+                                                                }
+
+                                                                if (
+                                                                    /^\d*\.?\d*$/.test(
+                                                                        val
+                                                                    )
+                                                                ) {
+                                                                    field.onChange(
+                                                                        val
+                                                                    );
+                                                                }
+                                                            }}
+                                                        />
+                                                    </FormControl>
+                                                    <FormDescription>
+                                                        Measure and enter
+                                                        remaining feed in house
+                                                    </FormDescription>
+                                                    <FormMessage />
+                                                </FormItem>
+                                            )}
+                                        />
+                                        <span className="absolute right-4 top-10 -translate-y-1/2 text-muted-foreground">
+                                            KG
+                                        </span>
+                                    </div>
+
+                                    {/* Calculated Consumption Display */}
+                                    <div className="rounded-md border bg-muted/40 p-3 text-sm space-y-1">
+                                        <div className="flex justify-between">
+                                            <span>Previous Leftover</span>
+
+                                            <span>
+                                                {formatQty(previousLeftover)} KG
+                                            </span>
+                                        </div>
+
+                                        <div className="flex justify-between">
+                                            <span>Feed Added</span>
+                                            <span>
+                                                {formatQty(feedAdded)} KG
+                                            </span>
+                                        </div>
+
+                                        <div className="border-t pt-2 flex justify-between font-medium">
+                                            <span>Calculated Consumption</span>
+                                            <span
+                                                className={
+                                                    calculatedConsumption < 0
+                                                        ? "text-destructive"
+                                                        : ""
+                                                }
+                                            >
+                                                {calculatedConsumption > 0
+                                                    ? formatQty(
+                                                          calculatedConsumption
+                                                      )
+                                                    : 0}{" "}
+                                                KG
+                                            </span>
+                                        </div>
+
+                                        {calculatedConsumption < 0 && (
+                                            <p className="text-xs text-destructive">
+                                                Invalid input: leftover exceeds
+                                                total available feed.
+                                            </p>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+
                             {/* Tip */}
-                            <div className="rounded-lg border border-primary/20 bg-primary/5 p-4 text-sm">
+                            {/* <div className="rounded-lg border border-primary/20 bg-primary/5 p-4 text-sm">
                                 <strong>Tip:</strong> Record events at the time
                                 they occur. Never merge multiple days into one
                                 entry, and always confirm the correct batch,
                                 house, unit, and quantity before saving.
-                            </div>
+                            </div> */}
                         </div>
 
                         <DialogFooter className="grid grid-cols-2 gap-4 mt-4 md:mt-6">
                             {/* Form Reset */}
                             <Button
                                 variant={"outline"}
-                                onClick={() => form.reset()}
+                                onClick={handleFormReset}
                                 className="cursor-pointer"
                             >
                                 <RefreshCcw />
