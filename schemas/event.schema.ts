@@ -1,6 +1,8 @@
 import { z } from "zod";
 import { HouseEventEnum, HouseEventUnitEnum } from "@/types/enum";
-import { decimalNumber, decimalOptional } from "./helper";
+import { decimalNumber, decimalOptionalZero } from "./helper";
+
+const FEED_BAG_SIZE = 50;
 
 export const addHouseEventSchema = z
     .object({
@@ -8,7 +10,8 @@ export const addHouseEventSchema = z
         eventType: z.nativeEnum(HouseEventEnum),
         occurredAt: z.coerce.date(),
         quantity: decimalNumber,
-        leftOverFeedQty: decimalOptional,
+        leftOverFeedQty: decimalOptionalZero,
+        usedLeftOverFeed: z.boolean(),
         unit: z.nativeEnum(HouseEventUnitEnum),
     })
     .superRefine((data, ctx) => {
@@ -44,7 +47,15 @@ export const addHouseEventSchema = z
                 message: "Feed events must use KG or BAG",
                 code: z.ZodIssueCode.custom,
             });
+
         }
+
+        if (data.eventType === HouseEventEnum.FEED && data.unit === HouseEventUnitEnum.BAG) {
+            data.quantity = data.quantity * FEED_BAG_SIZE;
+            data.unit = HouseEventUnitEnum.KG;
+        }
+
+
     });
 
 export type HouseEventFormInput = z.input<typeof addHouseEventSchema>;
