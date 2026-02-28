@@ -24,8 +24,11 @@ export async function POST(req: NextRequest) {
             quantity,
             unit,
             eventType,
-            leftOverFeedQty
+            leftOverFeedQty,
+            usedLeftOverFeed
         } = addHouseEventSchema.parse(body);
+
+        const leftoverValue = leftOverFeedQty ?? 0;
 
         const adminId = await GetAdminID();
 
@@ -43,10 +46,7 @@ export async function POST(req: NextRequest) {
             });
         }
 
-        if (
-            leftOverFeedQty !== undefined &&
-            (leftOverFeedQty < 0 || leftOverFeedQty > 50)
-        ) {
+        if (usedLeftOverFeed && (leftoverValue < 0 || leftoverValue > 50)) {
             throwError({
                 message: "Left over feed quantity must be between 0 and 50kg",
                 statusCode: 400,
@@ -55,8 +55,7 @@ export async function POST(req: NextRequest) {
 
         if (
             eventType === HouseEventEnum.FEED &&
-            leftOverFeedQty !== undefined &&
-            leftOverFeedQty > quantity
+            leftoverValue > quantity
         ) {
             throwError({
                 message: "Left over feed cannot exceed fed quantity",
@@ -172,8 +171,9 @@ export async function POST(req: NextRequest) {
                     },
                 });
 
-                // 4️⃣ Update leftover inventory (allow 0)
-                if (leftOverFeedQty !== undefined) {
+
+                if (leftoverValue > 0 && !usedLeftOverFeed) {
+
                     await tx.houseFeedInventory.upsert({
                         where: {
                             house_id_item_id: {
@@ -182,13 +182,36 @@ export async function POST(req: NextRequest) {
                             },
                         },
                         update: {
-                            quantity_remaining: leftOverFeedQty,
+                            quantity_remaining: leftoverValue,
                             last_modified_by: adminId,
                         },
                         create: {
                             house_id: houseId,
                             item_id: feedProgram.item_id,
-                            quantity_remaining: leftOverFeedQty,
+                            quantity_remaining: leftoverValue,
+                            last_modified_by: adminId,
+                        },
+                    });
+                }
+
+                // 4️⃣ Update leftover inventory (allow 0)
+                console.log("LEFT OVER VALUE", leftoverValue);
+                if (usedLeftOverFeed) {
+                    await tx.houseFeedInventory.upsert({
+                        where: {
+                            house_id_item_id: {
+                                house_id: houseId,
+                                item_id: feedProgram.item_id,
+                            },
+                        },
+                        update: {
+                            quantity_remaining: leftoverValue,
+                            last_modified_by: adminId,
+                        },
+                        create: {
+                            house_id: houseId,
+                            item_id: feedProgram.item_id,
+                            quantity_remaining: leftoverValue,
                             last_modified_by: adminId,
                         },
                     });

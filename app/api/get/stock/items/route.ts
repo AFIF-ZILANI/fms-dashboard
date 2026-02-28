@@ -2,7 +2,6 @@ import { Prisma } from "@/app/generated/prisma/client";
 import { ResourceCategories, StockReason } from "@/app/generated/prisma/enums";
 
 import { errorResponse, response } from "@/lib/apiResponse";
-import { getItemsAliveReservation } from "@/lib/db";
 import { throwError } from "@/lib/error";
 import prisma from "@/lib/prisma";
 import { parsePositiveInt } from "@/lib/utils";
@@ -326,9 +325,9 @@ WHERE 1=1
   ${categoryCondition}
   ${stockCondition}
 `;
-      const itemIds = items.map((i) => i.id);
-      const reservations = await getItemsAliveReservation(tx, { itemIds })
-      console.log("[RESERVATIONS] => ", reservations);
+      // const itemIds = items.map((i) => i.id);
+      // const reservations = await getItemsAliveReservation(tx, { itemIds })
+      // console.log("[RESERVATIONS] => ", reservations);
 
     })
 
@@ -359,10 +358,10 @@ WHERE 1=1
     });
     const total = countResult[0]?.total ?? 0;
 
-    console.log("[ITEMS] => ", items);
+    // console.log("[ITEMS] => ", items);
     // console.log("[COUNT RESULT] => ", countResult);
     // console.log("[TOTAL] => ", total);
-    console.log("[FORMATED ITEMS] => ", formatedItems);
+    // console.log("[FORMATED ITEMS] => ", formatedItems);
     return response({
       message: "Stock items retrieved successfully",
       data: {

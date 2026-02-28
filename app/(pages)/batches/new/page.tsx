@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect } from "react";
 import { format } from "date-fns";
 import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -37,6 +36,7 @@ import { useGetData, usePostData } from "@/lib/api-request";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Spinner } from "@/components/ui/spinner";
+import { InventoryItem } from "@/types/inventory/type";
 
 export type SupplierOption = {
     id: string;
@@ -49,14 +49,13 @@ interface SuppliersResponse {
 
 export default function AddBatchPage() {
     const router = useRouter();
-    const { mutate, isSuccess, isPending, isError, error } =
-        usePostData("/create/batch/new");
-    const {
-        data,
-        // isError: isGetSupplierError,
-        // isFetched,
-        isFetching,
-    } = useGetData("/suppliers/get-all-suppliers?category=CHICKS");
+    const { mutate, isPending } = usePostData("/create/batch/new");
+    const { data, isFetching } = useGetData(
+        "/suppliers/get-all-suppliers?category=CHICKS"
+    );
+    const { data: feedData } = useGetData(
+        "/get/stock/items?limit=10&page=1&category=FEED&status=all&sortOrder=asc&sortBy=name"
+    );
 
     const form = useForm<AddBatchInput>({
         resolver: zodResolver(addBatchSchema),
@@ -79,24 +78,28 @@ export default function AddBatchPage() {
     });
 
     const suppliersList: SupplierOption[] = (data as SuppliersResponse)?.data;
-    console.log(suppliersList);
-
-    useEffect(() => {
-        if (isSuccess) {
-            toast.success("Batch Created Successfully");
-            form.reset();
-            router.push("/batches");
-        }
-
-        if (isError) {
-            toast.error(error.message);
-        }
-    }, [isError, isSuccess, isPending, error, form, router]);
+    const feedList: InventoryItem[] =
+        (feedData as { data: { items: InventoryItem[] } })?.data?.items ?? [];
+    console.log(feedList);
+    console.log(feedData);
+    // console.log(suppliersList);
 
     const onSubmit = (data: AddBatchInput) => {
-        mutate({
-            ...data,
-        });
+        mutate(
+            {
+                ...data,
+            },
+            {
+                onSuccess: () => {
+                    toast.success("Batch Created Successfully");
+                    form.reset();
+                    router.push("/batches");
+                },
+                onError: (error) => {
+                    toast.error(error.message);
+                },
+            }
+        );
     };
 
     const onError = (error: unknown) => {
@@ -263,6 +266,47 @@ export default function AddBatchPage() {
                                                     </span>
                                                 </div>
                                             </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                                <FormField
+                                    control={form.control}
+                                    name="feedId"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Feed</FormLabel>
+                                            <Select
+                                                onValueChange={(val) =>
+                                                    field.onChange(
+                                                        val || undefined
+                                                    )
+                                                }
+                                                defaultValue={field.value}
+                                            >
+                                                <FormControl>
+                                                    <SelectTrigger className="w-full">
+                                                        <SelectValue placeholder="Select feed" />
+                                                    </SelectTrigger>
+                                                </FormControl>
+                                                <SelectContent>
+                                                    {feedList &&
+                                                        feedList?.map(
+                                                            (feed) => (
+                                                                <SelectItem
+                                                                    key={
+                                                                        feed.id
+                                                                    }
+                                                                    value={
+                                                                        feed.id
+                                                                    }
+                                                                >
+                                                                    {feed.name}
+                                                                </SelectItem>
+                                                            )
+                                                        )}
+                                                </SelectContent>
+                                            </Select>
                                             <FormMessage />
                                         </FormItem>
                                     )}
