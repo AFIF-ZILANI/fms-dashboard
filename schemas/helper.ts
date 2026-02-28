@@ -39,6 +39,28 @@ export const decimalOptional = z
     )
     .optional();
 
+export const decimalOptionalZero = z
+    .preprocess((val) => {
+        if (val === "" || val === undefined || val === null) {
+            return 0;
+        }
+
+        if (typeof val === "string") {
+            const parsed = Number(val);
+            return Number.isFinite(parsed) ? parsed : 0;
+        }
+
+        if (typeof val === "number") {
+            return val;
+        }
+
+        return 0;
+    },
+        z.number().refine(
+            (v) => Number(v.toFixed(2)) === v,
+            "Maximum 2 decimal places allowed"
+        ));
+
 export const zodUUID = z.string().uuid("Invalid UUID");
 export const zodUUIDArray = z.array(zodUUID);
 export const zodUUIDOptional = z.string().uuid().optional();
