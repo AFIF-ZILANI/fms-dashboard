@@ -1,4 +1,5 @@
 import { ResourceCategories, StockReason } from "@/app/generated/prisma/enums";
+import { Decimal } from "@prisma/client/runtime/client";
 
 export const VALID_STATUSES = ["OK", "LOW", "OUT", "NOT_INITIALIZED"] as const;
 export const VALID_SORT_FIELDS = ["name", "stock", "lastUpdated"] as const;
@@ -43,3 +44,13 @@ export type InventoryItem = {
 export type ValidStatus = (typeof VALID_STATUSES)[number];
 export type ValidSortField = (typeof VALID_SORT_FIELDS)[number];
 export type ValidSortOrder = (typeof VALID_SORT_ORDERS)[number];
+
+
+export type LeftoverFeed = {
+    id: string;
+    house_id: string;
+    item_id: string;
+    quantity_remaining: Decimal;
+    last_modified_by: string;
+    updated_at: Date;
+}
