@@ -438,11 +438,12 @@ export function AddEventDialog() {
                                             <div className="font-medium flex items-center gap-2">
                                                 <span>Previous Leftover</span>
                                                 <span className="text-xs text-muted-foreground">
-                                                    {formatTimeAgo(
-                                                        String(
-                                                            leftoverThisHouse?.updated_at
-                                                        )
-                                                    )}
+                                                    {leftoverThisHouse?.updated_at &&
+                                                        formatTimeAgo(
+                                                            String(
+                                                                leftoverThisHouse?.updated_at
+                                                            )
+                                                        )}
                                                 </span>
                                             </div>
                                             <span className="text-xs text-muted-foreground">

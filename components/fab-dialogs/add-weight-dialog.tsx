@@ -188,48 +188,58 @@ export function AddWeightRecordDialog() {
                                 )}
                             />
 
-                            <FormField
-                                control={form.control}
-                                name="avgWeightInGrams"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>
-                                            Average Weight (grams) *
-                                        </FormLabel>
-                                        <FormControl>
-                                            <Input
-                                                type="text"
-                                                inputMode="decimal"
-                                                placeholder="e.g. 100"
-                                                className="pr-12"
-                                                value={
-                                                    (field.value as string) ??
-                                                    ""
-                                                }
-                                                onChange={(e) => {
-                                                    let val = e.target.value;
-
-                                                    // Prefix 0 if starts with "."
-                                                    if (val.startsWith(".")) {
-                                                        val = `0${val}`;
+                            <div className="relative">
+                                <FormField
+                                    control={form.control}
+                                    name="avgWeightInGrams"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>
+                                                Average Weight *
+                                            </FormLabel>
+                                            <FormControl>
+                                                <Input
+                                                    type="text"
+                                                    inputMode="decimal"
+                                                    placeholder="e.g. 100"
+                                                    className="pr-12"
+                                                    value={
+                                                        (field.value as string) ??
+                                                        ""
                                                     }
+                                                    onChange={(e) => {
+                                                        let val =
+                                                            e.target.value;
 
-                                                    // Allow valid decimal typing only
-                                                    if (
-                                                        /^\d*\.?\d*$/.test(val)
-                                                    ) {
-                                                        field.onChange(val); // ✅ STRING ONLY
-                                                    }
-                                                }}
-                                            />
-                                        </FormControl>
-                                        <FormDescription>
-                                            Average bird weight in grams
-                                        </FormDescription>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
+                                                        // Prefix 0 if starts with "."
+                                                        if (
+                                                            val.startsWith(".")
+                                                        ) {
+                                                            val = `0${val}`;
+                                                        }
+
+                                                        // Allow valid decimal typing only
+                                                        if (
+                                                            /^\d*\.?\d*$/.test(
+                                                                val
+                                                            )
+                                                        ) {
+                                                            field.onChange(val); // ✅ STRING ONLY
+                                                        }
+                                                    }}
+                                                />
+                                            </FormControl>
+                                            <FormDescription>
+                                                Average bird weight in grams
+                                            </FormDescription>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                                <span className="absolute right-4 top-10 -translate-y-1/2 text-muted-foreground">
+                                    grams
+                                </span>
+                            </div>
 
                             {/* Sample Size */}
                             <FormField
