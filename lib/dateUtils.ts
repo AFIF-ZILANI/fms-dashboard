@@ -187,3 +187,37 @@ console.log(getRelativeTime(new Date(Date.now() - 1000 * 60 * 5)));
 
 console.log(getRelativeTime(new Date(Date.now() + 1000 * 60 * 60 * 2)));
 // "in 2 hours"
+
+
+export function formatTimeAgo(date: Date | string | number): string {
+    const dateObj =
+        typeof date === "string" || typeof date === "number"
+            ? new Date(date)
+            : date;
+
+    if (isNaN(dateObj.getTime())) {
+        throw new Error("Invalid date provided");
+    }
+
+    const now = new Date();
+    const diffMs = now.getTime() - dateObj.getTime();
+
+    const seconds = Math.floor(diffMs / 1000);
+    const minutes = Math.floor(seconds / 60);
+    const hours = Math.floor(minutes / 60);
+    const days = Math.floor(hours / 24);
+
+    if (seconds < 60) {
+        return `${seconds}s ago`;
+    }
+
+    if (minutes < 60) {
+        return `${minutes}m ago`;
+    }
+
+    if (hours < 24) {
+        return `${hours}h ago`;
+    }
+
+    return `${days}d ago`;
+}
