@@ -14,32 +14,33 @@ datasource db {
 }
 
 model Batches {
-  id                    String                 @id @default(uuid())
-  starting_date         DateTime               @default(now())
-  expected_selling_date DateTime
-  initial_quantity      Int
-  init_chicks_avg_wt    Float
-  breed                 BirdBreeds
-  batch_id              String                 @unique
-  status                BatchStatus            @default(RUNNING)
-  phase                 Phase
-  farm_code             String
-  product_code          String
-  sector_code           String
-  created_at            DateTime               @default(now())
-  updated_at            DateTime               @updatedAt
-  batchSuppliers        BatchSuppliers[]
-  Environment           EnvironmentRecords[]
-  Medications           Medications[]
-  Vaccination           Vaccinations[]
-  weightRecords         WeightRecords[]
-  batchHouseAllocations BatchHouseAllocation[]
-  events                HouseEvents[]
-  expenses              Expense[]
-  birdSales             BirdSale[]
-  batchFeedingPrograms  BatchFeedingProgram[]
-  consumptions          Consumption[]
-  stockReservations     StockReservation[]
+  id                        String                      @id @default(uuid())
+  starting_date             DateTime                    @default(now())
+  expected_selling_date     DateTime
+  initial_quantity          Int
+  init_chicks_avg_wt        Float
+  breed                     BirdBreeds
+  batch_id                  String                      @unique
+  status                    BatchStatus                 @default(RUNNING)
+  phase                     Phase
+  farm_code                 String
+  product_code              String
+  sector_code               String
+  created_at                DateTime                    @default(now())
+  updated_at                DateTime                    @updatedAt
+  batchSuppliers            BatchSuppliers[]
+  Environment               EnvironmentRecords[]
+  Medications               Medications[]
+  Vaccination               Vaccinations[]
+  weightRecords             WeightRecords[]
+  batchHouseAllocations     BatchHouseAllocation[]
+  events                    HouseEvents[]
+  expenses                  Expense[]
+  birdSales                 BirdSale[]
+  batchFeedingPrograms      BatchFeedingProgram[]
+  consumptions              Consumption[]
+  stockReservations         StockReservation[]
+  batchVaccinationSchedules BatchVaccinationSchedules[]
 
   @@index([farm_code, sector_code, product_code, batch_id])
 }
@@ -561,24 +562,79 @@ model Medications {
   doctor             Doctors?  @relation(fields: [doctor_id], references: [id])
 }
 
+model VaccinePrograms {
+  id          String   @id @default(uuid())
+  name        String // Sonali Classic 60 Day Program
+  description String?
+  is_active   Boolean  @default(true)
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+
+  program_days VaccineProgramDays[]
+}
+
+model VaccineProgramDays {
+  id           String            @id @default(uuid())
+  program_id   String
+  day_number   Int // day 1, day 5, day 10
+  vaccine_name String
+  dosage       String?
+  route        VaccinationRoute? // eye drop, water, injection
+  notes        String?
+
+  program VaccinePrograms @relation(fields: [program_id], references: [id])
+
+  batchVaccinationSchedules BatchVaccinationSchedules[]
+}
+
+enum VaccinationRoute {
+  EYE_DROP
+  WATER
+  INJECTION
+}
+
+model BatchVaccinationSchedules {
+  id             String            @id @default(uuid())
+  batch_id       String
+  program_day_id String
+  scheduled_date DateTime          @db.Date
+  status         VaccinationStatus @default(PENDING)
+  reminder_sent  Boolean           @default(false)
+
+  batch       Batches            @relation(fields: [batch_id], references: [id])
+  program_day VaccineProgramDays @relation(fields: [program_day_id], references: [id])
+
+  vaccination_record Vaccinations?
+  created_at         DateTime      @default(now())
+  updated_at         DateTime      @updatedAt
+}
+
+enum VaccinationStatus {
+  PENDING
+  COMPLETED
+  MISSED
+  CANCELLED
+}
+
 model Vaccinations {
-  id              String    @id @default(uuid())
+  id              String   @id @default(uuid())
   batch_id        String
-  date            DateTime  @default(now())
-  vaccine_details String?
+  schedule_id     String?  @unique
   administered_by String
-  vaccine_name    String
-  dosage          Int
-  cause           String?
-  period          String?
   doctor_id       String?
+  vaccine_name    String
+  dosage          String?
+  route           String?
   remarks         String?
-  farm_date       DateTime? @db.Date
-  created_at      DateTime  @default(now())
-  updated_at      DateTime  @updatedAt
-  administered    Admins    @relation(fields: [administered_by], references: [id])
-  batch           Batches   @relation(fields: [batch_id], references: [id])
-  doctor          Doctors?  @relation(fields: [doctor_id], references: [id])
+  farm_date       DateTime @db.Date
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  batch        Batches                    @relation(fields: [batch_id], references: [id])
+  schedule     BatchVaccinationSchedules? @relation(fields: [schedule_id], references: [id])
+  administered Admins                     @relation(fields: [administered_by], references: [id])
+  doctor       Doctors?                   @relation(fields: [doctor_id], references: [id])
 }
 
 model EnvironmentRecords {
