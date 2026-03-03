@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useForm } from "react-hook-form";
+import { ControllerRenderProps, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
     SupplierRoleNames,
@@ -44,6 +44,7 @@ import {
 import { usePostData } from "@/lib/api-request";
 import { toast } from "sonner";
 import { OptionalLabel, RequiredLabel } from "../helper";
+import Image from "next/image";
 
 const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp"];
 
@@ -121,7 +122,10 @@ export function AddSupplierForm() {
             value.charAt(0) + value.slice(1).toLowerCase().replace(/_/g, " ")
         );
     };
-    const handleFileValidation = (file: File, field: any) => {
+    const handleFileValidation = (
+        file: File,
+        field: ControllerRenderProps<CreateSupplierInput, "avatar">
+    ) => {
         // Type check
         if (!ALLOWED_TYPES.includes(file.type)) {
             form.setError("avatar", {
@@ -339,7 +343,7 @@ export function AddSupplierForm() {
 
                                                     {previewUrl ? (
                                                         <>
-                                                            <img
+                                                            <Image
                                                                 src={previewUrl}
                                                                 alt="Avatar preview"
                                                                 className="w-full h-full object-cover"

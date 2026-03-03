@@ -1,4 +1,3 @@
-import { Avatars } from "@/app/generated/prisma/client";
 import { UserRole } from "@/app/generated/prisma/enums";
 import { errorResponse, response } from "@/lib/apiResponse";
 import cloudinary from "@/lib/cloudinary";

@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useForm } from "react-hook-form";
+import { ControllerRenderProps, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
     Card,
@@ -84,14 +84,10 @@ export function AddAdminForm() {
             },
         });
     };
-
-    // Helper to format enum values for display
-    const formatEnumValue = (value: string): string => {
-        return (
-            value.charAt(0) + value.slice(1).toLowerCase().replace(/_/g, " ")
-        );
-    };
-    const handleFileValidation = (file: File, field: any) => {
+    const handleFileValidation = (
+        file: File,
+        field: ControllerRenderProps<AddAdminProfile, "avatar">
+    ) => {
         // Type check
         if (!ALLOWED_TYPES.includes(file.type)) {
             form.setError("avatar", {

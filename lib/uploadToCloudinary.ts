@@ -26,11 +26,15 @@ export async function uploadImageToCloudinary(file: File | null, { folder }: { f
                     ],
                 },
                 (error, result) => {
-                    if (error) reject(error);
+                    if (error) return reject(error);
+
+                    if (!result || !result.public_id || !result.secure_url) {
+                        return reject(new Error("Failed to upload image"));
+                    }
 
                     resolve({
-                        public_id: result?.public_id!,
-                        image_url: result?.secure_url!,
+                        public_id: result.public_id,
+                        image_url: result.secure_url,
                     });
                 }
             )

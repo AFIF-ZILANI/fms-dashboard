@@ -49,18 +49,18 @@ async function fetchJson<T>(
   if (!res.ok) {
     if (
       isJson &&
+      responseBody &&
       typeof responseBody === "object" &&
-      responseBody !== null &&
       "message" in responseBody
     ) {
-      throw new Error(String(responseBody.message));
+      throw new Error(String((responseBody as { message: unknown }).message));
     }
 
     throw new Error(`Request failed: ${res.status}`);
   }
 
   if (res.status === 204) {
-    return {} as T;
+    return undefined as unknown as T;
   }
 
   return responseBody as T;
@@ -93,7 +93,7 @@ export function usePostData<TInput, TOutput>(endpoint: string) {
     mutationFn: (data: TInput) =>
       fetchJson<TOutput>(endpoint, {
         method: "POST",
-        body: data as any, // let fetchJson decide
+        body: data as RequestInit["body"],
       }),
   });
 }
