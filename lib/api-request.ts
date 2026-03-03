@@ -10,43 +10,60 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 // }
 // const server_URI = `${process.env.SERVER_URI}/${process.env.API_VERSION}`;
 const server_URI = "/api";
-
 async function fetchJson<T>(
   endpoint: string,
   options: RequestInit = {}
 ): Promise<T> {
   const isFormData = options.body instanceof FormData;
 
-  const headers: HeadersInit = isFormData
-    ? options.headers || {}
-    : {
-      "Content-Type": "application/json",
-      ...(options.headers || {}),
-    };
+  const isPlainObject =
+    options.body &&
+    typeof options.body === "object" &&
+    !isFormData &&
+    !(options.body instanceof Blob);
+
+  const headers: HeadersInit = {
+    ...(isFormData
+      ? {}
+      : { "Content-Type": "application/json" }),
+    ...(options.headers || {}),
+  };
+
+  const body = isPlainObject
+    ? JSON.stringify(options.body)
+    : options.body;
 
   const res = await fetch(server_URI + endpoint, {
     ...options,
     headers,
+    body,
   });
 
   const contentType = res.headers.get("content-type") || "";
   const isJson = contentType.includes("application/json");
 
-  const body = isJson ? await res.json() : await res.text();
+  const responseBody = isJson
+    ? await res.json()
+    : await res.text();
 
   if (!res.ok) {
-    // if backend sends JSON {message: "..."}
-    if (isJson && body?.message) {
-      throw new Error(body.message);
+    if (
+      isJson &&
+      typeof responseBody === "object" &&
+      responseBody !== null &&
+      "message" in responseBody
+    ) {
+      throw new Error(String(responseBody.message));
     }
 
     throw new Error(`Request failed: ${res.status}`);
   }
 
-  // 204 No Content
-  if (res.status === 204) return {} as T;
+  if (res.status === 204) {
+    return {} as T;
+  }
 
-  return body as T;
+  return responseBody as T;
 }
 
 
@@ -76,7 +93,7 @@ export function usePostData<TInput, TOutput>(endpoint: string) {
     mutationFn: (data: TInput) =>
       fetchJson<TOutput>(endpoint, {
         method: "POST",
-        body: JSON.stringify(data),
+        body: data as any, // let fetchJson decide
       }),
   });
 }

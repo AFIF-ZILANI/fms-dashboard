@@ -1,11 +1,10 @@
-import { Avatars } from "@/app/generated/prisma/client";
-import { UserRole } from "@/app/generated/prisma/enums";
+import { Avatars, UserRole } from "@/app/generated/prisma/client";
 import { errorResponse, response } from "@/lib/apiResponse";
 import cloudinary from "@/lib/cloudinary";
 import { throwError } from "@/lib/error";
 import prisma from "@/lib/prisma";
 import { uploadImageToCloudinary } from "@/lib/uploadToCloudinary";
-import { addAdminProfileSchema } from "@/schemas/admin.schema";
+import { createSupplierSchema } from "@/schemas/supplier.schema";
 import { NextRequest } from "next/server";
 
 export async function POST(req: NextRequest) {
@@ -28,39 +27,23 @@ export async function POST(req: NextRequest) {
         };
 
         // console.log("Converted object:", body);
-        const parsed = addAdminProfileSchema.parse(body);
+        const parsed = createSupplierSchema.parse(body);
         // console.log("After parsing:", parsed);
 
-        const uploadedImage = await uploadImageToCloudinary(parsed.avatar, { folder: "admins" });
+        let uploadedImage = null;
 
-        if (!uploadedImage) {
-            throwError({
-                message: "Image upload failed",
-                statusCode: 400,
-            })
+        if (parsed.avatar?.size) {
+            uploadedImage = await uploadImageToCloudinary(parsed.avatar, { folder: "suppliers" });
         }
 
+
         console.log(uploadedImage);
+        let avatarRecord: Avatars | null = null;
 
         try {
             await prisma.$transaction(async (tx) => {
 
-                const avatar = await tx.avatars.create({
-                    data: {
-                        public_id: uploadedImage.public_id,
-                        image_url: uploadedImage.image_url,
-
-                    },
-                });
-
-                if (!avatar) {
-                    throwError({
-                        message: "Recording avatar data on database failed",
-                        statusCode: 400,
-                    })
-                }
-
-                const isEmailAlreadyExist = await tx.profiles.findFirst({
+                const isEmailAlreadyExist = parsed.email && await tx.profiles.findFirst({
                     where: {
                         email: parsed.email,
                     },
@@ -73,35 +56,42 @@ export async function POST(req: NextRequest) {
                     });
                 }
 
-                const mobileAlreadyExist = await tx.profiles.findFirst({
+                const isMobileAlreadyExist = await tx.profiles.findFirst({
                     where: {
                         mobile: parsed.mobile,
                     },
                 });
 
-                if (mobileAlreadyExist) {
+                if (isMobileAlreadyExist) {
                     throwError({
-                        message: "Mobile number already used",
+                        message: "Mobile already used",
                         statusCode: 400,
                     });
                 }
 
-
+                if (uploadedImage) {
+                    avatarRecord = await tx.avatars.create({
+                        data: uploadedImage,
+                    });
+                }
 
                 const profile = await tx.profiles.create({
                     data: {
                         name: parsed.name,
                         mobile: parsed.mobile,
-                        address: parsed.address,
-                        email: parsed.email,
-                        avatar_id: avatar.id,
-                        role: UserRole.ADMIN,
+                        email: parsed.email ?? undefined,
+                        address: parsed.address ?? undefined,
+                        role: UserRole.SUPPLIER,
+                        avatar_id: avatarRecord?.id,
                     },
                 });
 
-                await tx.admins.create({
+                await tx.suppliers.create({
                     data: {
                         profile_id: profile.id,
+                        company: parsed.company ?? undefined,
+                        type: parsed.type,
+                        role: parsed.role,
                     },
                 });
             });
@@ -114,9 +104,8 @@ export async function POST(req: NextRequest) {
             throw err;
         }
 
-
         return response({
-            message: "Admin added successfully!",
+            message: "Supplier created successfully",
         });
     } catch (error) {
         return errorResponse(error);
