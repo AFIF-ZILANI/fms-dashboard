@@ -1,2 +1,0 @@
--- AlterEnum
-ALTER TYPE "StockReason" ADD VALUE 'OPENING_BALANCE';
