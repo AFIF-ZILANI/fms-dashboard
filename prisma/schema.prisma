@@ -151,7 +151,7 @@ model Profiles {
   id            String          @id @default(uuid())
   email         String?         @unique
   name          String
-  mobile        String
+  mobile        String          @unique
   address       String?
   avatar_id     String?
   role          UserRole
@@ -211,7 +211,6 @@ model Suppliers {
   id             String                     @id @default(uuid())
   profile_id     String                     @unique
   profile        Profiles                   @relation(fields: [profile_id], references: [id])
-  rating         Float?                     @default(0)
   role           SupplierRoleNames
   type           SupplierSupplyCategories[]
   company        String?

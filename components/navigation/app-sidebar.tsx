@@ -11,6 +11,7 @@ import {
     ShoppingBag,
     Warehouse,
     Wallet,
+    User,
 } from "lucide-react";
 
 import { NavMain } from "@/components/navigation/nav-main";
@@ -51,6 +52,18 @@ const data = {
     ],
     navMain: [
         {
+            title: "Admins",
+            url: "/admins",
+            icon: User,
+            isActive: true,
+            items: [
+                {
+                    title: "New Admin",
+                    url: "/admins/new",
+                },
+            ],
+        },
+        {
             title: "Batches",
             url: "/batches",
             icon: Layers,
@@ -58,7 +71,7 @@ const data = {
             items: [
                 {
                     title: "History",
-                    url: "batc",
+                    url: "batches/history",
                 },
             ],
         },

@@ -1,12 +1,6 @@
 "use client";
 
-import {
-    CartesianGrid,
-    Line,
-    LineChart,
-    XAxis,
-    YAxis,
-} from "recharts";
+import { CartesianGrid, Line, LineChart, XAxis, YAxis } from "recharts";
 import {
     Card,
     CardContent,
@@ -22,7 +16,7 @@ import {
 } from "@/components/ui/chart";
 import { ChartEmptyState } from "../empty-chart-error";
 
-export const description = "Feed chart (age in days)";
+export const description = "Weight chart (age in days)";
 
 const chartConfig = {
     weight: {
@@ -46,9 +40,9 @@ export default function WeightRecordChart({
     return (
         <Card>
             <CardHeader>
-                <CardTitle>Feed Consumption</CardTitle>
+                <CardTitle>Weight Record</CardTitle>
                 <CardDescription>
-                    Showing feed consumption by age (days)
+                    Showing weight record by age (days)
                 </CardDescription>
             </CardHeader>
             <CardContent>

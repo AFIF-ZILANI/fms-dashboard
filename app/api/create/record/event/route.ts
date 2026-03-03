@@ -53,15 +53,15 @@ export async function POST(req: NextRequest) {
             });
         }
 
-        if (
-            eventType === HouseEventEnum.FEED &&
-            leftoverValue > quantity
-        ) {
-            throwError({
-                message: "Left over feed cannot exceed fed quantity",
-                statusCode: 400,
-            });
-        }
+        // if (
+        //     eventType === HouseEventEnum.FEED &&
+        //     leftoverValue > quantity
+        // ) {
+        //     throwError({
+        //         message: "Left over feed cannot exceed fed quantity",
+        //         statusCode: 400,
+        //     });
+        // }
 
         await prisma.$transaction(async (tx) => {
             await assertHouseIdsValid(tx, [houseId]);
