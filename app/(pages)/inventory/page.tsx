@@ -61,14 +61,26 @@ export default function Page() {
     const [sortField, setSortField] = useState<ValidSortField>("name");
     const [sortOrder, setSortOrder] = useState<ValidSortOrder>("asc");
 
+    const query = new URLSearchParams({
+        limit: String(pageSize),
+        page: String(pageIndex),
+        category: categoryFilter,
+        status: statusFilter,
+        sortOrder,
+        sortBy: sortField,
+    });
+
+    if (search.trim()) {
+        query.append("search", search.trim());
+    }
+
     // Filter data based on search and
     const {
         refetch: refetchItems,
         data: itemsDataRes,
         isFetching: isFetchingItems,
-    } = useGetData<InventoryItemsRes>(
-        `/get/stock/items?limit=${pageSize}&page=${pageIndex}&category=${categoryFilter}&status=${statusFilter}&sortOrder=${sortOrder}${sortField ? `&sortBy=${sortField}` : ""}${search ? `&search=${search}` : ""}`
-    );
+    } = useGetData<InventoryItemsRes>(`/get/stock/items?${query.toString()}`);
+    // console.log("SORT FIELD RAW:", JSON.stringify(sortField));
     const { data: attentionDataRes, isLoading: isAttentionDataLoading } =
         useGetData<{ data: { items: AttentionItem[] } }>(
             "/get/stock/items/attention"

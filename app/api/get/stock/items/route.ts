@@ -40,10 +40,10 @@ export async function GET(req: Request) {
     const limit = parsePositiveInt(searchParams.get("limit"), 10, 100);
 
     const search = (searchParams.get("search") ?? "").trim();
-    const category = searchParams.get("category");
-    const status = searchParams.get("status");
-    const sortBy = searchParams.get("sortBy") ?? "name";
-    const sortOrder = searchParams.get("sortOrder") ?? "asc";
+    const category = searchParams.get("category")?.trim();
+    const status = searchParams.get("status")?.trim();
+    const sortBy = searchParams.get("sortBy")?.trim() ?? "name";
+    const sortOrder = searchParams.get("sortOrder")?.trim() ?? "asc";
 
     // console.log("[PAGE] => ", page);
     // console.log("[LIMIT] => ", limit);
