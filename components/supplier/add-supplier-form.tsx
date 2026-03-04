@@ -346,6 +346,8 @@ export function AddSupplierForm() {
                                                             <Image
                                                                 src={previewUrl}
                                                                 alt="Avatar preview"
+                                                                width={100}
+                                                                height={100}
                                                                 className="w-full h-full object-cover"
                                                             />
                                                             <div className="absolute inset-0 bg-black/40 opacity-0 hover:opacity-100 transition flex items-center justify-center">

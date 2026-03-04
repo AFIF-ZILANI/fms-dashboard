@@ -56,6 +56,10 @@ export default function AddBatchPage() {
     const { data: feedData } = useGetData(
         "/get/stock/items?limit=10&page=1&category=FEED&status=all&sortOrder=asc&sortBy=name"
     );
+    const { data: allocationHouses, isLoading: allocationHousesIsLoading } =
+        useGetData<{ data: { id: string; label: string }[] }>(
+            "/get/houses/ready-for-allocation"
+        );
 
     const form = useForm<AddBatchInput>({
         resolver: zodResolver(addBatchSchema),
@@ -76,13 +80,26 @@ export default function AddBatchPage() {
         control: form.control,
         name: "suppliers",
     });
+    const {
+        fields: allocationFields,
+        append: allocationAppend,
+        remove: allocationRemove,
+    } = useFieldArray({
+        control: form.control,
+        name: "allocation",
+    });
 
-    const suppliersList: SupplierOption[] = (data as SuppliersResponse)?.data;
+    const suppliersList: SupplierOption[] =
+        (data as SuppliersResponse)?.data ?? [];
     const feedList: InventoryItem[] =
         (feedData as { data: { items: InventoryItem[] } })?.data?.items ?? [];
+    const housesList: { id: string; label: string }[] =
+        (allocationHouses as { data: { id: string; label: string }[] })?.data ??
+        [];
     console.log(feedList);
     console.log(feedData);
-    // console.log(suppliersList);
+    console.log(suppliersList);
+    console.log(housesList);
 
     const onSubmit = (data: AddBatchInput) => {
         mutate(
@@ -568,6 +585,157 @@ export default function AddBatchPage() {
                                                                 }}
                                                             />
                                                         </div>
+                                                    </FormControl>
+                                                    <FormMessage />
+                                                </FormItem>
+                                            )}
+                                        />
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        ))}
+                    </div>
+
+                    {/* House Allocation */}
+                    <div className="space-y-4">
+                        <div className="flex items-center justify-between">
+                            <div className="space-y-1">
+                                <h2 className="text-2xl font-semibold">
+                                    House Allocation
+                                </h2>
+                                <p className="text-sm text-muted-foreground">
+                                    Add one or more houses for this batch
+                                </p>
+                            </div>
+                            <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() =>
+                                    allocationAppend({
+                                        houseId: "",
+                                        allocationType: "PARTIAL",
+                                        quantity: 0,
+                                    })
+                                }
+                            >
+                                <Plus className="h-4 w-4 mr-2" />
+                                Add House
+                            </Button>
+                        </div>
+
+                        {allocationFields.map((field, index) => (
+                            <Card key={field.id}>
+                                <CardHeader className="pb-4">
+                                    <div className="flex items-center justify-between">
+                                        <CardTitle className="text-lg">
+                                            House {index + 1}
+                                        </CardTitle>
+                                        {allocationFields.length > 1 && (
+                                            <Button
+                                                type="button"
+                                                variant="ghost"
+                                                size="icon"
+                                                onClick={() =>
+                                                    allocationRemove(index)
+                                                }
+                                            >
+                                                <Trash className="h-4 w-4 text-destructive" />
+                                            </Button>
+                                        )}
+                                    </div>
+                                </CardHeader>
+                                <CardContent>
+                                    <div className="grid grid-cols-1 gap-6">
+                                        <FormField
+                                            control={form.control}
+                                            name={`allocation.${index}.houseId`}
+                                            render={({ field }) => (
+                                                <FormItem>
+                                                    <FormLabel>House</FormLabel>
+                                                    <Select
+                                                        onValueChange={
+                                                            field.onChange
+                                                        }
+                                                        value={field.value}
+                                                    >
+                                                        <FormControl>
+                                                            <SelectTrigger className="w-full">
+                                                                <SelectValue placeholder="Select house" />
+                                                            </SelectTrigger>
+                                                        </FormControl>
+                                                        <SelectContent>
+                                                            {allocationHousesIsLoading ? (
+                                                                <div>
+                                                                    Fetching
+                                                                    Houses...
+                                                                </div>
+                                                            ) : (
+                                                                housesList.map(
+                                                                    (h) => (
+                                                                        <SelectItem
+                                                                            key={
+                                                                                h.id
+                                                                            }
+                                                                            value={
+                                                                                h.id
+                                                                            }
+                                                                            className="space-x-5"
+                                                                        >
+                                                                            {
+                                                                                h.label
+                                                                            }
+                                                                        </SelectItem>
+                                                                    )
+                                                                )
+                                                            )}
+                                                        </SelectContent>
+                                                    </Select>
+                                                    <FormMessage />
+                                                </FormItem>
+                                            )}
+                                        />
+
+                                        <FormField
+                                            control={form.control}
+                                            name={`allocation.${index}.quantity`}
+                                            render={({ field }) => (
+                                                <FormItem>
+                                                    <FormLabel>
+                                                        Quantity
+                                                    </FormLabel>
+                                                    <FormControl>
+                                                        <Input
+                                                            type="text"
+                                                            inputMode="numeric"
+                                                            placeholder="0"
+                                                            pattern="[0-9]*"
+                                                            {...field}
+                                                            value={
+                                                                field.value ||
+                                                                ""
+                                                            }
+                                                            onChange={(e) => {
+                                                                const val =
+                                                                    e.target
+                                                                        .value;
+                                                                // Allow only digits
+                                                                if (
+                                                                    /^\d*$/.test(
+                                                                        val
+                                                                    )
+                                                                ) {
+                                                                    field.onChange(
+                                                                        val ===
+                                                                            ""
+                                                                            ? ""
+                                                                            : Number(
+                                                                                  val
+                                                                              )
+                                                                    );
+                                                                }
+                                                            }}
+                                                        />
                                                     </FormControl>
                                                     <FormMessage />
                                                 </FormItem>

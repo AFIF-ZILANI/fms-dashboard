@@ -1,6 +1,4 @@
 "use client";
-
-import * as React from "react";
 import { useMemo } from "react";
 import {
     ColumnDef,
@@ -23,20 +21,11 @@ import {
 } from "@/components/ui/table";
 import { useGetData } from "@/lib/api-request";
 import Link from "next/link";
+import { House } from "@/types";
 
 /* ---------------------------------- */
 /* Types */
 /* ---------------------------------- */
-
-type House = {
-    id: string;
-    houseNumber: number;
-    name: string;
-    type: "BROODER" | "GROWER" | "LAYER";
-    runningBatch?: {
-        batchId: string;
-    } | null;
-};
 
 interface HouseResponse {
     data: House[];
@@ -47,15 +36,28 @@ interface HouseResponse {
 /* ---------------------------------- */
 
 export default function HousesPage() {
-    const { data, isFetching } = useGetData("/houses/fetch");
+    const { data, isFetching } = useGetData<HouseResponse>("/get/houses/all");
 
-    const houses: House[] = (data as HouseResponse)?.data ?? [];
+    let houses: House[] = [];
+
+    if (data?.data) {
+        houses = data.data;
+    }
 
     /* ---------- KPI ---------- */
 
-    const total = houses.length;
-    const full = houses.filter((h) => h.runningBatch).length;
-    const empty = total - full;
+    const total = houses.length ?? 0;
+    let full = 0;
+    let empty = 0;
+
+    if (houses.length > 0) {
+        full = houses.filter((h) => h.runningBatchId).length ?? 0;
+        empty = Number(total - full) || 0;
+    }
+
+    console.log("[DATA FROM HOUSES PAGE] => ", houses);
+    console.log("[FULL FROM HOUSES PAGE] => ", full);
+    console.log("[EMPTY FROM HOUSES PAGE] => ", empty);
 
     /* ---------- Columns ---------- */
 
@@ -85,7 +87,7 @@ export default function HousesPage() {
                 id: "status",
                 header: "Status",
                 cell: ({ row }) => {
-                    const isFull = Boolean(row.original.runningBatch);
+                    const isFull = Boolean(row.original.runningBatchId);
                     return (
                         <Badge variant={isFull ? "default" : "secondary"}>
                             {isFull ? "Full" : "Empty"}
@@ -96,7 +98,7 @@ export default function HousesPage() {
             {
                 id: "batch",
                 header: "Running Batch",
-                cell: ({ row }) => row.original.runningBatch?.batchId ?? "—",
+                cell: ({ row }) => row.original.runningBatchId ?? "—",
             },
         ],
         []

@@ -164,3 +164,13 @@ export type ItemInventoryForUse = {
     warehouse_stock: Prisma.Decimal;
     house_reserved_stocks: { houseId: string; quantity: Prisma.Decimal }[]
 };
+
+
+export type House = {
+    id: string;
+    houseNumber: number;
+    label: string;
+    name: string;
+    type: "BROODER" | "GROWER" | "LAYER";
+    runningBatchId?: string | null;
+};

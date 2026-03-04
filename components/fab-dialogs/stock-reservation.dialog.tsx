@@ -67,7 +67,11 @@ export function StockReservationDialog() {
 
     const houses = helperData?.data.houses;
     const itemsList = itemsListRes?.data || [];
-    console.log(itemsListRes);
+    console.log(
+        "[ITEMS LIST FROM DIALOG (Stock Reservation)] => ",
+        itemsListRes
+    );
+    console.log("[HOUSES FROM DIALOG (Stock Reservation)] => ", houses);
 
     function handleFormReset() {
         form.reset({

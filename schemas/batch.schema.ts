@@ -20,6 +20,15 @@ const supplierSchema = z.object({
     deliveryDate: zodDate,
 });
 
+const houseAllocationSchema = z.object({
+    houseId: zodUUID,
+    allocationType: z.enum(["PARTIAL", "FULL"]),
+    quantity: z
+        .number()
+        .positive("Quantity must be positive")
+        .int("Quantity must be an integer"),
+})
+
 // --- Define the Zod Validation Schema ---
 export const addBatchSchema = z.object({
     // 1. Initial Weight (Number)
@@ -43,6 +52,10 @@ export const addBatchSchema = z.object({
             1,
             "The 'suppliers' array cannot be empty. At least one supplier is required."
         ),
+    allocation: z.array(houseAllocationSchema).min(
+        1,
+        "The 'allocation' array cannot be empty. At least one allocation is required."
+    ),
 
 }).superRefine((data) => {
     // console.log("Batch submitted:", data);

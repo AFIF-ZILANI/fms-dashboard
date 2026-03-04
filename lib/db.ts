@@ -323,6 +323,41 @@ export async function assertHouseHasRunningBatchFast(
     } : null;
 }
 
+export async function assertManyHouseHasRunningBatchFast(
+    tx: PrismaTx,
+    houseIds: string[]
+) {
+    const result = await tx.batchHouseBalance.findMany({
+        where: {
+            house_id: { in: houseIds },
+            quantity: { gt: 0 },
+        },
+        select: {
+            house_id: true,
+            batch_id: true,
+            quantity: true,
+        },
+    });
+
+    const map = new Map<string, typeof result>();
+
+    for (const row of result) {
+        const arr = map.get(row.house_id) ?? [];
+        arr.push(row);
+        map.set(row.house_id, arr);
+    }
+
+    for (const [houseId, rows] of map) {
+        if (rows.length > 1) {
+            throw new Error(
+                `Data corruption: house ${houseId} has multiple running batches`
+            );
+        }
+    }
+
+    return result;
+}
+
 export async function assertHouseHasRunningBatchFastThrowError(
     tx: PrismaTx,
     houseId: string

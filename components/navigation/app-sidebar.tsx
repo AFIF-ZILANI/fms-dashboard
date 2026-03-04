@@ -58,7 +58,7 @@ const data = {
             isActive: true,
             items: [
                 {
-                    title: "New Admin",
+                    title: "Add Admin",
                     url: "/admins/new",
                 },
             ],
@@ -70,8 +70,8 @@ const data = {
             isActive: true,
             items: [
                 {
-                    title: "History",
-                    url: "batches/history",
+                    title: "Add Batch",
+                    url: "/batches/new",
                 },
             ],
         },
@@ -81,16 +81,8 @@ const data = {
             icon: House,
             items: [
                 {
-                    title: "Genesis",
-                    url: "#",
-                },
-                {
-                    title: "Explorer",
-                    url: "#",
-                },
-                {
-                    title: "Quantum",
-                    url: "#",
+                    title: "Add House",
+                    url: "/houses/new",
                 },
             ],
         },
@@ -100,20 +92,8 @@ const data = {
             icon: Truck,
             items: [
                 {
-                    title: "Introduction",
-                    url: "#",
-                },
-                {
-                    title: "Get Started",
-                    url: "#",
-                },
-                {
-                    title: "Tutorials",
-                    url: "#",
-                },
-                {
-                    title: "Changelog",
-                    url: "#",
+                    title: "Add Supplier",
+                    url: "/suppliers/new",
                 },
             ],
         },
