@@ -45,13 +45,13 @@ export async function GET(req: Request) {
     const sortBy = searchParams.get("sortBy")?.trim() ?? "name";
     const sortOrder = searchParams.get("sortOrder")?.trim() ?? "asc";
 
-    // console.log("[PAGE] => ", page);
-    // console.log("[LIMIT] => ", limit);
-    // console.log("[SEARCH] => ", search);
-    // console.log("[CATEGORY] => ", category);
-    // console.log("[STATUS] => ", status);
-    // console.log("[SORT BY] => ", sortBy);
-    // console.log("[SORT ORDER] => ", sortOrder);
+    console.log("[PAGE] => ", page);
+    console.log("[LIMIT] => ", limit);
+    console.log("[SEARCH] => ", search);
+    console.log("[CATEGORY] => ", category);
+    console.log("[STATUS] => ", status);
+    console.log("[SORT BY] => ", sortBy);
+    console.log("[SORT ORDER] => ", sortOrder);
 
     // ---------------- VALIDATION ----------------
 
