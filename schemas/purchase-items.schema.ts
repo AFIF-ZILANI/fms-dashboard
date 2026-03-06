@@ -1,6 +1,6 @@
 import { PaymentStatus, Units } from "@/app/generated/prisma/enums";
 import { z } from "zod";
-import { decimalNumber, decimalOptional } from "./helper";
+import { decimalNumber, decimalOptional, zodUUIDOptional } from "./helper";
 import { paymentSchema } from "./payment.schem";
 
 export const itemSchema = z.object({
@@ -13,7 +13,7 @@ export const itemSchema = z.object({
 export const purchaseItemSchema = z
     .object({
         // 1️⃣ Header
-        supplierId: z.string().uuid(),
+        supplierId: zodUUIDOptional,
         purchaseDate: z.coerce.date(),
 
         invoiceNo: z.string().optional(),
@@ -73,6 +73,22 @@ export const purchaseItemSchema = z
             ctx.addIssue({
                 path: ["payment"],
                 message: "Payment must not exist when status is UNPAID",
+                code: z.ZodIssueCode.custom,
+            });
+        }
+
+        if (!data.supplierId && (data.paymentStatus === "UNPAID" || data.paymentStatus === "PARTIAL")) {
+            ctx.addIssue({
+                path: ["payment", "paymentStatus"],
+                message: "Supplier is required if payment is not paid or partial",
+                code: z.ZodIssueCode.custom,
+            });
+        }
+
+        if (!data.supplierId && data.payment?.toInstrumentId) {
+            ctx.addIssue({
+                path: ["payment", "toInstrumentId"],
+                message: "Supplier is required if to select payment instrument",
                 code: z.ZodIssueCode.custom,
             });
         }

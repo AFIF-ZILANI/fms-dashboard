@@ -1,4 +1,4 @@
-import { AllocationReason, BatchStatus, FeedType, Phase } from "@/app/generated/prisma/enums";
+import { AllocationReason, BatchStatus, FeedType, PaymentRefType, PaymentStatus, PaymentType, Phase, UserRole } from "@/app/generated/prisma/enums";
 import { errorResponse, response } from "@/lib/apiResponse";
 import { generateBatchId, getLastBatchNumber } from "@/lib/batch-utils";
 import { createBatchHouseAllocationWithBalanceUpdate } from "@/lib/db";
@@ -12,7 +12,7 @@ import { NextRequest } from "next/server"; // Use NextResponse for proper respon
 export async function POST(req: NextRequest) {
     try {
         const body = await req.json();
-        const { initChicksAvgWT, initialQuantity, date, suppliers, breed, feedId, allocation } = addBatchSchema.parse(body);
+        const { initChicksAvgWT, initialQuantity, date, supplierId, breed, feedId, allocation, payment, paymentStatus, unitPrice } = addBatchSchema.parse(body);
 
         const parsedDate = new Date(date);
         if (parsedDate.getTime() > Date.now()) {
@@ -30,14 +30,8 @@ export async function POST(req: NextRequest) {
                 statusCode: 400,
             });
         }
-        const totalSupplierQty = suppliers.reduce((acc, curr) => acc + curr.quantity, 0);
-        if (totalSupplierQty !== initialQuantity) {
-            throwError({
-                message:
-                    "Total supplier quantity must be equal to initial quantity",
-                statusCode: 400,
-            });
-        }
+
+        const totalPrice = unitPrice * initialQuantity;
         const startingDate = parsedDate;
         const EXPECTED_DAYS = 60; // Define the constant here
         // Create a *copy* of the startingDate object to manipulate
@@ -78,12 +72,11 @@ export async function POST(req: NextRequest) {
                 });
             }
 
-            const uniqueSupplierIds = new Set(suppliers.map(s => s.id));
-            const dbSuppliers = await tx.suppliers.findMany({
-                where: { id: { in: [...uniqueSupplierIds] } }
+            const dbSupplier = await tx.suppliers.findUnique({
+                where: { id: supplierId },
             });
 
-            if (dbSuppliers.length !== uniqueSupplierIds.size) {
+            if (!dbSupplier) {
                 throwError({
                     message: "Invalid supplier id",
                     statusCode: 400,
@@ -107,12 +100,80 @@ export async function POST(req: NextRequest) {
                 });
             }
 
+            const { toInstrumentId, fromInstrumentId, paidAmount, handledById } = payment;
+            if (paymentStatus === "UNPAID" && payment) {
+                throwError({
+                    message: "Invalid payment",
+                    statusCode: 400,
+                });
+            }
+            if (paymentStatus === "PAID" || paymentStatus === "PARTIAL") {
+                if (!toInstrumentId || !fromInstrumentId) {
+                    throwError({
+                        message: "Payment instrument is required",
+                        statusCode: 400,
+                    });
+                }
+
+                if (paymentStatus === "PARTIAL" && (paidAmount <= 0 || paidAmount >= totalPrice)) {
+                    throwError({
+                        message: "Payment amount must be greater than 0 and less than total amount for partial payment",
+                        statusCode: 400,
+                    });
+                }
+
+                if (paymentStatus === "PAID" && paidAmount !== totalPrice) {
+                    throwError({
+                        message: "Payment amount must be equal to total amount for paid payment",
+                        statusCode: 400,
+                    });
+                }
+
+                const toInstrument = await tx.paymentInstrument.findUnique({
+                    where: { id: toInstrumentId },
+                });
+                if (!toInstrument) {
+                    throwError({
+                        message: "Invalid payment instrument",
+                        statusCode: 400,
+                    });
+                }
+                const fromInstrument = await tx.paymentInstrument.findUnique({
+                    where: { id: fromInstrumentId },
+                });
+                if (!fromInstrument) {
+                    throwError({
+                        message: "Invalid payment instrument",
+                        statusCode: 400,
+                    });
+                }
+
+                if (toInstrument.type !== fromInstrument.type) {
+                    throwError({
+                        message: "Payment instrument type must be same",
+                        statusCode: 400,
+                    });
+                }
+
+                const handledBy = await tx.profiles.findFirst({
+                    where: {
+                        id: handledById,
+                        role: UserRole.ADMIN
+                    },
+                });
+                if (!handledBy) {
+                    throwError({
+                        message: "Invalid handled by",
+                        statusCode: 400,
+                    });
+                }
+            }
 
             const newBatch = await tx.batches.create({
                 data: {
                     batch_id,
                     breed: breed,
-                    starting_date: new Date(date),
+                    starting_date: parsedDate,
                     init_chicks_avg_wt: initChicksAvgWT,
                     phase: Phase.BROODER,
                     initial_quantity: initialQuantity,
@@ -124,17 +185,36 @@ export async function POST(req: NextRequest) {
             });
 
 
-            for (const sup of suppliers) {
-                await tx.batchSuppliers.create({
+
+            // ------------------------
+            // Create payment only if needed
+            // ------------------------
+            if (paymentStatus !== PaymentStatus.UNPAID) {
+                await tx.payment.create({
                     data: {
-                        batch_id: newBatch.id,
-                        supplier_id: sup.id,
-                        quantity: sup.quantity,
-                        price_per_chicks: sup.unitPrice,
-                        delivery_date: new Date(sup.deliveryDate),
+                        payment_date: new Date(payment!.paymentDate),
+                        amount: payment!.paidAmount,
+                        direction: PaymentType.OUTGOING,
+                        ref_type: PaymentRefType.PURCHASE,
+                        ref_id: newBatch.id,
+                        from_instrument_id: payment!.fromInstrumentId,
+                        to_instrument_id: payment!.toInstrumentId,
+                        handled_by_id: payment!.handledById,
+                        note: payment!.note,
                     },
-                })
+                });
             }
+
+            await tx.batchSuppliers.create({
+                data: {
+                    batch_id: newBatch.id,
+                    supplier_id: supplierId,
+                    quantity: initialQuantity,
+                    price_per_chicks: unitPrice,
+                    delivery_date: parsedDate,
+                },
+            })
+
 
 
 
@@ -143,7 +223,7 @@ export async function POST(req: NextRequest) {
                     where: {
                         to_house_id: alloc.houseId,
                         occurred_at: {
-                            lt: date,
+                            lt: parsedDate,
                         },
                     },
                     orderBy: {
@@ -160,7 +240,7 @@ export async function POST(req: NextRequest) {
                     toHouseId: alloc.houseId,
                     quantity: alloc.quantity,
                     reason: AllocationReason.INITIAL,
-                    occurredAt: date,
+                    occurredAt: parsedDate,
                 })
 
                 await tx.consumption.updateMany({
@@ -171,7 +251,7 @@ export async function POST(req: NextRequest) {
                             ...(lastAllocation
                                 ? { gt: lastAllocation.occurred_at }
                                 : {}),
-                            lt: date,
+                            lt: parsedDate,
                         },
                     },
                     data: {
@@ -179,11 +259,6 @@ export async function POST(req: NextRequest) {
                     },
                 });
             }
-
-
-
-
-
 
             const feed = await tx.item.findFirst({
                 where: {

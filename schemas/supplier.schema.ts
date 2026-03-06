@@ -18,14 +18,12 @@ export const createSupplierSchema = z.object({
     email: z
         .string()
         .email("Invalid email address")
-        .optional()
-        .or(z.literal("")), // allow empty string from form
+        .optional(),
 
     address: z
         .string()
         .max(255)
-        .optional()
-        .or(z.literal("")),
+        .optional(),
 
     // ===== Supplier fields =====
     role: z.nativeEnum(SupplierRoleNames),
@@ -50,6 +48,8 @@ export const createSupplierSchema = z.object({
                     "Invalid avatar file"
             }
         ),
+}).superRefine((data) => {
+    console.log(data)
 });
 
 export type CreateSupplierInput = z.infer<typeof createSupplierSchema>;

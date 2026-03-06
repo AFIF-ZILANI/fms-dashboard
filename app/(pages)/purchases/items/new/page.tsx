@@ -79,8 +79,6 @@ import { useRouter } from "next/navigation";
 import { InitialStockItemForm } from "@/components/fab-dialogs/add-initial-stock-item.dialog";
 import { ItemInventorySummary } from "@/types";
 
-const ADMIN_ID = "35204ae0-a642-4bbb-996b-c8b800fc0643";
-
 interface ItemsListResponse {
     data: ItemInventorySummary[];
 }
@@ -104,8 +102,9 @@ export default function NewPurchasePage() {
 
     const { data: userInstrumentsRes } = useGetData<{
         data: InstrumentsResponse[];
-    }>(`/get/payments/instruments/user?id=${ADMIN_ID}&type=${UserRole.ADMIN}`);
+    }>(`/get/payments/instruments/user?type=${UserRole.ADMIN}`);
 
+    console.log(userInstrumentsRes);
     const [supplierInstruments, setSupplierInstruments] = useState<
         InstrumentsResponse[]
     >([]);
@@ -891,6 +890,7 @@ export default function NewPurchasePage() {
                                                         onValueChange={
                                                             field.onChange
                                                         }
+                                                        disabled={!supplierId}
                                                     >
                                                         <SelectTrigger className="w-full">
                                                             <SelectValue placeholder="Select supplier account" />

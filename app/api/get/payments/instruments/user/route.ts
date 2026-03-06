@@ -10,21 +10,25 @@ export async function GET(req: NextRequest) {
         const searchParams = url.searchParams;
 
         const id = searchParams.get("id");
-        if (!id) {
-            throw new Error("Missing id parameter");
-        }
         const type: UserRole | null =
             (searchParams.get("type") as UserRole) || null;
+
+        if (!id && type !== UserRole.ADMIN) {
+            throwError({
+                message: "Missing id parameter",
+                statusCode: 400,
+            });
+        }
 
         let instruments: { id: string; label: string; type: PaymentMethod }[] =
             [];
         let owner: UserRole;
-        let profileId = "";
+        let ownerId = "";
         switch (type) {
             case "SUPPLIER":
-                const supplier = await prisma.suppliers.findFirst({
+                const supplier = await prisma.suppliers.findUnique({
                     where: {
-                        id,
+                        id: id ?? "",
                     },
                 });
 
@@ -35,13 +39,13 @@ export async function GET(req: NextRequest) {
                         statusCode: 400,
                     });
                 }
-                profileId = supplier.profile_id;
+                ownerId = supplier.id;
                 owner = UserRole.SUPPLIER;
                 break;
             case "CUSTOMER":
-                const customer = await prisma.customers.findFirst({
+                const customer = await prisma.customers.findUnique({
                     where: {
-                        id,
+                        id: id ?? "",
                     },
                 });
 
@@ -51,16 +55,12 @@ export async function GET(req: NextRequest) {
                         statusCode: 400,
                     });
                 }
-                profileId = customer.profile_id;
+                ownerId = customer.id;
                 owner = UserRole.CUSTOMER;
                 break;
             // case "TRANSPORTER":
             case "ADMIN":
-                const admin = await prisma.admins.findFirst({
-                    where: {
-                        id,
-                    },
-                });
+                const admin = await prisma.admins.findFirst({});
 
                 if (!admin) {
                     throwError({
@@ -68,13 +68,13 @@ export async function GET(req: NextRequest) {
                         statusCode: 400,
                     });
                 }
-                profileId = admin.profile_id;
+                ownerId = admin.id;
                 owner = UserRole.ADMIN;
                 break;
             case "DOCTOR":
-                const doctor = await prisma.doctors.findFirst({
+                const doctor = await prisma.doctors.findUnique({
                     where: {
-                        id,
+                        id: id ?? "",
                     },
                 });
 
@@ -84,13 +84,13 @@ export async function GET(req: NextRequest) {
                         statusCode: 400,
                     });
                 }
-                profileId = doctor.profile_id;
+                ownerId = doctor.id;
                 owner = UserRole.DOCTOR;
                 break;
             case "EMPLOYEE":
-                const employee = await prisma.employees.findFirst({
+                const employee = await prisma.employees.findUnique({
                     where: {
-                        id,
+                        id: id ?? "",
                     },
                 });
 
@@ -100,17 +100,19 @@ export async function GET(req: NextRequest) {
                         statusCode: 400,
                     });
                 }
-                profileId = employee.profile_id;
+                ownerId = employee.id;
                 owner = UserRole.EMPLOYEE;
                 break;
             default:
                 throw new Error("Invalid actor type");
         }
 
+        console.log(owner, ownerId);
+
         const instrument = await prisma.paymentInstrument.findMany({
             where: {
                 owner_type: owner,
-                owner_id: profileId,
+                owner_id: ownerId,
                 is_active: true,
             },
         });
@@ -126,7 +128,7 @@ export async function GET(req: NextRequest) {
         if (instruments.length === 0) {
             throwError({
                 message: "No payment instruments found for this user",
-                statusCode: 400,
+                statusCode: 404,
             });
         }
 

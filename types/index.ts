@@ -134,10 +134,6 @@ export type ActorSearchItem = {
     type: UserRole;
 };
 
-export type GetHouses = {
-    houses: { id: string; label: string; runningBatch: string; qty: number }[];
-};
-
 export type Organization = {
     id: string;
     labelName: string;
@@ -171,6 +167,7 @@ export type House = {
     houseNumber: number;
     label: string;
     name: string;
+    quantity?: number;
     type: "BROODER" | "GROWER" | "LAYER";
     runningBatchId?: string | null;
 };

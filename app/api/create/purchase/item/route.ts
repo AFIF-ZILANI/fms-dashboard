@@ -23,18 +23,21 @@ export async function POST(req: NextRequest) {
             // ------------------------
             // Validate supplier
             // ------------------------
-            const supplier = await tx.suppliers.findFirst({
-                where: {
-                    id: data.supplierId,
-                },
-            });
-
-            if (!supplier) {
-                throwError({
-                    message: "Invalid supplier selected for this purchase",
-                    statusCode: 400,
+            if (data.supplierId) {
+                const supplier = await tx.suppliers.findFirst({
+                    where: {
+                        id: data.supplierId,
+                    },
                 });
+                if (!supplier) {
+                    throwError({
+                        message: "Invalid supplier selected for this purchase",
+                        statusCode: 400,
+                    });
+                }
             }
+
+
 
             // ------------------------
             // Validate payment rules
@@ -49,9 +52,16 @@ export async function POST(req: NextRequest) {
             }
 
             if (data.paymentStatus !== PaymentStatus.UNPAID) {
+
                 if (!data.payment) {
                     throwError({
                         message: "Payment details required",
+                        statusCode: 400,
+                    });
+                }
+                if (data.supplierId && !data.payment?.toInstrumentId) {
+                    throwError({
+                        message: "Invalid supplier payment instrument",
                         statusCode: 400,
                     });
                 }
@@ -72,9 +82,16 @@ export async function POST(req: NextRequest) {
                     });
                 }
 
-                if (!toInst) {
+                if (!toInst && data.supplierId) {
                     throwError({
-                        message: "Invalid to payment instrument",
+                        message: "Invalid supplier payment instrument",
+                        statusCode: 400,
+                    });
+                }
+
+                if (toInst && toInst.type === fromInst.type) {
+                    throwError({
+                        message: "Payment instrument type must be different",
                         statusCode: 400,
                     });
                 }
@@ -134,11 +151,9 @@ export async function POST(req: NextRequest) {
             // ------------------------
             const purchase = await tx.purchase.create({
                 data: {
-                    supplier: {
-                        connect: {
-                            id: supplier.id,
-                        },
-                    },
+                    supplier: data.supplierId
+                        ? { connect: { id: data.supplierId } }
+                        : undefined,
                     invoice_no: data.invoiceNo,
                     purchase_date: data.purchaseDate,
                     paid_amount: paid,
@@ -173,7 +188,7 @@ export async function POST(req: NextRequest) {
                         ref_type: PaymentRefType.PURCHASE,
                         ref_id: purchase.id,
                         from_instrument_id: data.payment!.fromInstrumentId,
-                        to_instrument_id: data.payment!.toInstrumentId,
+                        to_instrument_id: data.supplierId ? data.payment!.toInstrumentId : null,
                         handled_by_id: data.payment!.handledById,
                         note: data.payment!.note,
                     },

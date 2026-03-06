@@ -1,6 +1,6 @@
 import { UserRole, MfsType, PaymentMethod } from "@/app/generated/prisma/enums";
 import { z } from "zod";
-import { decimalNumber } from "./helper";
+import { decimalNumber, zodUUID, zodUUIDOptional } from "./helper";
 
 export const paymentInstrumentSchema = z
     .object({
@@ -89,9 +89,8 @@ export const paymentInstrumentSchema = z
 
 export const paymentSchema = z.object({
     paidAmount: decimalNumber,
-
-    fromInstrumentId: z.string().uuid(),
-    toInstrumentId: z.string().uuid(),
+    fromInstrumentId: zodUUID,
+    toInstrumentId: zodUUIDOptional,
     method: z.nativeEnum(PaymentMethod),
     transactionRef: z.string().optional(),
     handledById: z.string().uuid().optional(),
