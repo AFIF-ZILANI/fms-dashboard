@@ -33,7 +33,7 @@ import {
 import { Input } from "../ui/input";
 import { toast } from "sonner";
 import { Spinner } from "../ui/spinner";
-import { GetHouses, ItemInventoryForUse } from "@/types";
+import { House, ItemInventoryForUse } from "@/types";
 import {
     addStockReservationSchema,
     AddStockReservationInput,
@@ -42,7 +42,7 @@ import { Badge } from "../ui/badge";
 import { TooltipCreator } from "@/lib/strings";
 
 interface HelperResponse {
-    data: GetHouses;
+    data: House[];
 }
 
 export function StockReservationDialog() {
@@ -65,7 +65,7 @@ export function StockReservationDialog() {
         data: ItemInventoryForUse[];
     }>("/get/stock/items/to-use");
 
-    const houses = helperData?.data.houses;
+    const houses = helperData?.data;
     const itemsList = itemsListRes?.data || [];
     console.log(
         "[ITEMS LIST FROM DIALOG (Stock Reservation)] => ",

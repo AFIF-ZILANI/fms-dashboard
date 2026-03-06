@@ -38,22 +38,22 @@ import {
     BatchAllocationInput,
     batchAllocationSchema,
 } from "@/schemas/batch.schema";
-import { GetHouses } from "@/types";
 import { Skeleton } from "../ui/skeleton";
 import { Calendar } from "../ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
 import { format } from "date-fns";
+import { House } from "@/types";
 
 export function AddBatchAllocationDialog() {
     const { data: runningHouses, isLoading: runningHousesIsLoading } =
-        useGetData<{ data: GetHouses }>("/get/houses/running");
+        useGetData<{ data: House[] }>("/get/houses/running");
     const { data: destinationHouses, isLoading: destinationHousesIsLoading } =
         useGetData<{ data: { id: string; label: string }[] }>(
             "/get/houses/ready-for-allocation"
         );
 
     // console.log("[runningHouses] => ", runningHouses);
-    const runningHousesData = runningHouses?.data.houses || [];
+    const runningHousesData = runningHouses?.data || [];
     const destinationHousesData = destinationHouses?.data || [];
 
     const [dialogOpen, setDialogOpen] = useState(false);
@@ -168,7 +168,7 @@ export function AddBatchAllocationDialog() {
                                     {selectedHouse ? (
                                         <span className="text-xs text-muted-foreground">
                                             Running batch:{" "}
-                                            {selectedHouse.runningBatch}
+                                            {selectedHouse.runningBatchId}
                                         </span>
                                     ) : (
                                         <span className="text-xs text-muted-foreground">

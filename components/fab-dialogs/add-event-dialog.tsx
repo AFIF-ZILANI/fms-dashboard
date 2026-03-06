@@ -38,7 +38,7 @@ import { Input } from "../ui/input";
 import { toast } from "sonner";
 import { Spinner } from "../ui/spinner";
 import { EventTypeArr, HouseEventEnum, HouseEventUnitEnum } from "@/types/enum";
-import { EVENT_UNIT_MAP, GetHouses, HouseEventType } from "@/types";
+import { EVENT_UNIT_MAP, House, HouseEventType } from "@/types";
 import { LeftoverFeed } from "@/types/inventory/type";
 import { formatQty } from "@/lib/utils";
 import { formatTimeAgo } from "@/lib/dateUtils";
@@ -46,7 +46,7 @@ import { Checkbox } from "../ui/checkbox";
 import { Label } from "../ui/label";
 
 interface HelperResponse {
-    data: GetHouses;
+    data: House[];
 }
 
 export function AddEventDialog() {
@@ -75,7 +75,7 @@ export function AddEventDialog() {
         "/create/record/event"
     );
 
-    const houses = helperData?.data.houses;
+    const houses = helperData?.data;
     const leftover = leftoverFeedData?.data;
 
     const selectedHouseId = useWatch({
@@ -242,7 +242,7 @@ export function AddEventDialog() {
                                                             (h) =>
                                                                 h.id ===
                                                                 selectedHouseId
-                                                        )?.runningBatch
+                                                        )?.runningBatchId
                                                     }
                                                 </span>
                                             ) : (

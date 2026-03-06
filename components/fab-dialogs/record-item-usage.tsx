@@ -33,7 +33,7 @@ import {
 import { Input } from "../ui/input";
 import { toast } from "sonner";
 import { Spinner } from "../ui/spinner";
-import { GetHouses, ItemInventoryForUse } from "@/types";
+import { House, ItemInventoryForUse } from "@/types";
 import {
     RecordItemUsageInput,
     recordItemUsageSchema,
@@ -43,7 +43,7 @@ import { TooltipCreator } from "@/lib/strings";
 import { formatQty } from "@/lib/utils";
 
 interface HelperResponse {
-    data: GetHouses;
+    data: House[];
 }
 
 export function RecordItemUsage() {
@@ -66,7 +66,8 @@ export function RecordItemUsage() {
         data: ItemInventoryForUse[];
     }>("/get/stock/items/to-use");
 
-    const houses = helperData?.data.houses;
+    console.log(helperData);
+    const houses = helperData?.data || [];
     const itemsList = itemsListRes?.data || [];
 
     function handleFormReset() {

@@ -39,10 +39,10 @@ import {
     DialogTrigger,
 } from "@/components/ui/dialog";
 import { Spinner } from "../ui/spinner";
-import { GetHouses } from "@/types";
+import { House } from "@/types";
 
 interface HelperResponse {
-    data: GetHouses;
+    data: House[];
 }
 
 /* ---------------------------------- */
@@ -74,7 +74,7 @@ export function AddWeightRecordDialog() {
         error,
     } = usePostData("/create/record/weight");
 
-    const houses = helperData?.data.houses;
+    const houses = helperData?.data;
     // console.log(houses);
 
     const selectedHouseId = useWatch({
@@ -174,7 +174,7 @@ export function AddWeightRecordDialog() {
                                                             (h) =>
                                                                 h.id ===
                                                                 selectedHouseId
-                                                        )?.runningBatch
+                                                        )?.runningBatchId
                                                     }
                                                 </span>
                                             ) : (
