@@ -23,6 +23,7 @@ export interface ProfileKPIsProps {
     avgBodyWeightLatest?: number;
     fcr?: number;
     numberOfSeriousDeseasesHappen: number | null;
+    isLoading: boolean;
 }
 
 export interface ProfileBatchDetailsProps {
