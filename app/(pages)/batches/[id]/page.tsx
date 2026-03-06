@@ -110,6 +110,7 @@ export default function Page() {
                 }
                 totalFeedConsumed={profileData.totalFeedGenaral}
                 totalAliveBirds={profileData.totalAliveBirdsGenaral}
+                isLoading={isFetching}
             />
 
             {/* GRAPH (Fallback Inside Component) */}
