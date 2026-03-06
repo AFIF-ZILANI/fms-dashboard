@@ -3,13 +3,11 @@ import { getBatchAgeInDays } from "@/lib/date-time";
 import { getHouseBatchBalancesFast } from "@/lib/db";
 import { throwError } from "@/lib/error";
 import prisma from "@/lib/prisma";
-import { GetHouses } from "@/types";
+import { House } from "@/types";
 
 export async function GET() {
     try {
-        const data: GetHouses = {
-            houses: [],
-        };
+        const data: House[] = [];
         await prisma.$transaction(async (tx) => {
             const houses = await tx.houses.findMany({
                 select: {
@@ -17,12 +15,13 @@ export async function GET() {
                 },
             });
 
-            if (!houses.length) {
+            console.log("[HOUSE] => ", houses);
+            if (!houses.length)
                 throwError({
-                    statusCode: 400,
-                    message: "Houses not found at this time",
-                });
-            }
+                    message: "No houses found",
+                    statusCode: 404,
+                })
+
 
             const ids = houses.map((i) => i.id);
             const allocation = await tx.batchHouseAllocation.findMany({
@@ -56,13 +55,13 @@ export async function GET() {
 
             if (!allocation.length) {
                 throwError({
-                    message:
-                        "No active batch found for this house at this time.",
-                    statusCode: 400,
-                });
+                    message: "No allocation found",
+                    statusCode: 404,
+                })
             }
 
             const houseIds = allocation.map((i) => i.to_house_id).filter((i) => i !== null) as string[];
+
             const balance = await getHouseBatchBalancesFast(tx, {
                 houseIds: houseIds,
             });
@@ -72,16 +71,19 @@ export async function GET() {
                 if (!h) return;
                 const hasHouseQty = balance.find((b) => b.house_id === h.id)?.quantity || 0;
                 if (hasHouseQty <= 0) return;
-                data.houses.push({
+                data.push({
                     id: h.id,
-                    qty: hasHouseQty,
+                    quantity: hasHouseQty,
                     label: h.name,
-                    runningBatch: `${al.batch.breed} - ${getBatchAgeInDays(al.batch.starting_date)} Days - ${al.batch.phase}`,
+                    houseNumber: h.number,
+                    name: h.name,
+                    type: h.type,
+                    runningBatchId: `${al.batch.breed} - ${getBatchAgeInDays(al.batch.starting_date)} Days - ${al.batch.phase}`,
                 });
             });
         });
 
-        console.log("[DATA] => ", data);
+        // console.log("[DATA] => ", data);
         return response({
             message: "successfully data fetched",
             data,

@@ -10,7 +10,7 @@ export async function GET() {
 
             if (!houses.length) {
                 throwError({
-                    statusCode: 400,
+                    statusCode: 404,
                     message: "Houses not found at this time",
                 });
             }
@@ -50,7 +50,7 @@ export async function GET() {
 
             const filteredHouses = houses.filter((h) => !allocatedHouseIds.has(h.id));
 
-            console.log("[FILTERED HOUSES] => ", filteredHouses);
+            // console.log("[FILTERED HOUSES] => ", filteredHouses);
 
             data = filteredHouses.map((h) => ({
                 id: h.id,
