@@ -455,9 +455,9 @@ model Expense {
 }
 
 model Purchase {
-  id          String    @id @default(uuid())
-  supplier_id String
-  supplier    Suppliers @relation(fields: [supplier_id], references: [id])
+  id          String     @id @default(uuid())
+  supplier_id String?
+  supplier    Suppliers? @relation(fields: [supplier_id], references: [id])
 
   invoice_no    String?
   purchase_date DateTime
@@ -503,8 +503,8 @@ model Payment {
   from_instrument    PaymentInstrument @relation("PaymentFrom", fields: [from_instrument_id], references: [id])
 
   // TO where money moved
-  to_instrument_id String
-  to_instrument    PaymentInstrument @relation("PaymentTo", fields: [to_instrument_id], references: [id])
+  to_instrument_id String?
+  to_instrument    PaymentInstrument? @relation("PaymentTo", fields: [to_instrument_id], references: [id])
 
   transaction_ref String? // bank slip, bKash Txn ID (PER PAYMENT)
 
