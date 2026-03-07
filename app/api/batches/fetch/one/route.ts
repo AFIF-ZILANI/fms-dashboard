@@ -25,7 +25,6 @@ export async function GET(req: NextRequest) {
     try {
         const { searchParams } = new URL(req.url);
         const batchId = searchParams.get("batchId");
-        const now = new Date();
 
         if (!batchId) {
             throwError({
@@ -33,9 +32,12 @@ export async function GET(req: NextRequest) {
                 statusCode: 400,
             });
         }
+
+        const now = new Date();
+
         const [batch, events, suppliers, weightRec, allocations] =
             await Promise.all([
-                prisma.batches.findFirst({
+                prisma.batches.findUnique({
                     where: { id: batchId },
                 }),
 
@@ -59,8 +61,9 @@ export async function GET(req: NextRequest) {
 
                 prisma.weightRecords.findMany({
                     where: { batch_id: batchId },
-                    orderBy: { created_at: "asc" }, // should already be measured on day 4, 11, 18...
+                    orderBy: { created_at: "asc" },
                 }),
+
                 prisma.batchHouseAllocation.findMany({
                     where: { batch_id: batchId },
                 }),
@@ -74,29 +77,37 @@ export async function GET(req: NextRequest) {
         }
 
         // ---------- BASE DATA ----------
+        const batchAge = getBatchAgeInDays(batch.starting_date);
         const data: BatchProfileData = {
             batchId: batch.id,
             batch_bussiness_id: batch.batch_id,
             phase: batch.phase,
-            age: getBatchAgeInDays(batch.starting_date),
+            age: batchAge,
             breed: batch.breed,
+
             initialQuantity: batch.initial_quantity,
+
             batchStart: batch.starting_date,
             expectedSell: batch.expected_selling_date,
-            supplier: suppliers.map((s) => s.supplier.profile.name),
+
+            supplier: suppliers.map(
+                (s) => s.supplier?.profile?.name ?? "Unknown"
+            ),
+
             avgBodyWeightLatest: 0,
+
             mortalityToday: 0,
             numberOfSeriousDeseasesHappen: null,
             mortality24H: 0,
             mortality48H: 0,
             mortality72H: 0,
+
             daysToSell: batch.expected_selling_date
                 ? Math.max(
                     0,
                     Math.ceil(
-                        (batch.expected_selling_date.getTime() -
-                            now.getTime()) /
-                        (1000 * 60 * 60 * 24)
+                        (batch.expected_selling_date.getTime() - now.getTime()) /
+                        86400000
                     )
                 )
                 : 0,
@@ -107,6 +118,7 @@ export async function GET(req: NextRequest) {
             mortalityRateGenaral: 0,
 
             genaralFcr: 0,
+
             genralAliveBirds: [],
             genaralBodyWeight: [],
             genaralMortality: [],
@@ -127,179 +139,133 @@ export async function GET(req: NextRequest) {
             waterPerHouse: [],
         };
 
-        // const maxAge = getMaxAge(batch.starting_date, new Date());
-        const batchAge = getBatchAgeInDays(batch.starting_date);
-
         const initialBirdsPerHouse = new Map<string, number>();
 
-        for (const a of allocations) {
-            initialBirdsPerHouse.set(a.to_house_id!, a.quantity);
+        for (const allocation of allocations) {
+            if (!allocation.to_house_id) continue;
+
+            initialBirdsPerHouse.set(
+                allocation.to_house_id,
+                allocation.quantity
+            );
         }
 
-        const mortalityByHouseAge = new Map<string, number>();
-        const mortalityByHouseWeek = new Map<string, number>();
         const mortalityByAge = new Map<number, number>();
         const mortalityByWeek = new Map<number, number>();
-        const mortalityByHouseSum = new Map<string, number>();
+        const mortalityByHouseAge = new Map<string, Map<number, number>>();
 
-        const feedByHouseAge = new Map<string, number>();
         const feedByAge = new Map<number, number>();
-        const feedByHouseSum = new Map<string, number>();
+        const feedByHouseAge = new Map<string, Map<number, number>>();
 
-        const waterByHouseAge = new Map<string, number>();
         const waterByAge = new Map<number, number>();
+        const waterByHouseAge = new Map<string, Map<number, number>>();
+
+        const mortalityByHouseSum = new Map<string, number>();
+        const feedByHouseSum = new Map<string, number>();
         const waterByHouseSum = new Map<string, number>();
 
         for (const e of events) {
-            const thatAge = getBatchAgeInDays(
-                batch.starting_date,
-                e.occurred_at
-            );
+            const age = getBatchAgeInDays(batch.starting_date, e.occurred_at);
+            const week = Math.ceil(age / 7);
+            const qty = e.quantity ?? 0;
+            const houseId = e.house_id;
 
-            console.log(thatAge)
-            console.log(e)
+            switch (e.event_type) {
 
-            if (e.event_type === EventType.MORTALITY) {
-                const qty = e.quantity ?? 0;
-                const week = Math.ceil(thatAge / 7);
-                const dayKey = `${e.house_id}:${thatAge}`;
-                const weekKey = `${e.house_id}:${week}`;
+                case EventType.MORTALITY:
+                    addToMap(mortalityByAge, age, qty);
+                    addToMap(mortalityByWeek, week, qty);
+                    addToMap(mortalityByHouseSum, houseId, qty);
+                    addNested(mortalityByHouseAge, houseId, age, qty);
+                    break;
 
-                mortalityByHouseAge.set(
-                    dayKey,
-                    (mortalityByHouseAge.get(dayKey) ?? 0) + qty
-                );
-                mortalityByHouseWeek.set(
-                    weekKey,
-                    (mortalityByHouseWeek.get(weekKey) ?? 0) + qty
-                );
-                mortalityByWeek.set(
-                    week,
-                    (mortalityByWeek.get(week) ?? 0) + qty
-                );
-                mortalityByHouseSum.set(
-                    e.house_id,
-                    (mortalityByHouseSum.get(e.house_id) ?? 0) + qty
-                );
-                mortalityByAge.set(
-                    thatAge,
-                    (mortalityByAge.get(thatAge) ?? 0) + qty
-                );
-            }
+                case EventType.FEED:
+                    addToMap(feedByAge, age, qty);
+                    addToMap(feedByHouseSum, houseId, qty);
+                    addNested(feedByHouseAge, houseId, age, qty);
+                    break;
 
-            if (e.event_type === EventType.FEED) {
-                const qty = e.quantity ?? 0;
-                const dayKey = `${e.house_id}:${thatAge}`;
-
-                feedByHouseAge.set(
-                    dayKey,
-                    (feedByHouseAge.get(dayKey) ?? 0) + qty
-                );
-                feedByHouseSum.set(
-                    e.house_id,
-                    (feedByHouseSum.get(e.house_id) ?? 0) + qty
-                );
-                feedByAge.set(thatAge, (feedByAge.get(thatAge) ?? 0) + qty);
-            }
-
-            if (e.event_type === EventType.WATER) {
-                const qty = e.quantity ?? 0;
-                const dayKey = `${e.house_id}:${thatAge}`;
-
-                waterByHouseAge.set(
-                    dayKey,
-                    (waterByHouseAge.get(dayKey) ?? 0) + qty
-                );
-                waterByHouseSum.set(
-                    e.house_id,
-                    (waterByHouseSum.get(e.house_id) ?? 0) + qty
-                );
-                waterByAge.set(thatAge, (waterByAge.get(thatAge) ?? 0) + qty);
+                case EventType.WATER:
+                    addToMap(waterByAge, age, qty);
+                    addToMap(waterByHouseSum, houseId, qty);
+                    addNested(waterByHouseAge, houseId, age, qty);
+                    break;
             }
         }
 
-        const weightByHouseAge = new Map<string, WeightData>();
+        const weightByHouseAge = new Map<string, Map<number, WeightData>>();
         const weightByAge = new Map<number, WeightData>();
         const weightByWeek = new Map<number, WeightData>();
 
+        weightRec.sort(
+            (a, b) => a.farm_date.getTime() - b.farm_date.getTime()
+        );
         for (const w of weightRec) {
-            const wt = w.average_wt_grams.toNumber() ?? 0;
+            const wt = w.average_wt_grams.toNumber();
+            const sampleSize = w.sample_size;
 
-            const thatAge =
-                getBatchAgeInDays(batch.starting_date, w.farm_date as Date) ?? 0;
-            const week = Math.ceil(thatAge / 7);
-            const key = `${w.house_id}:${thatAge}`;
+            const age = getBatchAgeInDays(batch.starting_date, w.farm_date as Date);
+            const week = Math.ceil(age / 7);
+            const houseId = w.house_id;
 
-            weightByHouseAge.set(key, {
+            // ---------- HOUSE + AGE ----------
+            let houseMap = weightByHouseAge.get(houseId);
+
+            if (!houseMap) {
+                houseMap = new Map();
+                weightByHouseAge.set(houseId, houseMap);
+            }
+
+            houseMap.set(age, {
                 avgWeight: wt,
-                sampleSize: w.sample_size,
+                sampleSize
             });
 
-            const prev = weightByWeek.get(week);
-
+            // ---------- WEEK ----------
             weightByWeek.set(
                 week,
-                prev
-                    ? {
-                        avgWeight:
-                            (prev.avgWeight * prev.sampleSize +
-                                wt * w.sample_size) /
-                            (prev.sampleSize + w.sample_size),
-                        sampleSize: prev.sampleSize + w.sample_size,
-                    }
-                    : {
-                        avgWeight: wt,
-                        sampleSize: w.sample_size,
-                    }
+                mergeWeight(weightByWeek.get(week), wt, sampleSize)
             );
 
-            const existing = weightByAge.get(thatAge);
-
-            if (existing) {
-                // Calculate new weighted average
-                const totalWeight =
-                    existing.avgWeight * existing.sampleSize +
-                    wt * w.sample_size;
-                const totalSize = existing.sampleSize + w.sample_size;
-
-                weightByAge.set(thatAge, {
-                    avgWeight: totalWeight / totalSize,
-                    sampleSize: totalSize,
-                });
-            } else {
-                // Initialize the first entry for this age
-                weightByAge.set(thatAge, {
-                    avgWeight: wt,
-                    sampleSize: w.sample_size,
-                });
-            }
+            // ---------- AGE ----------
+            weightByAge.set(
+                age,
+                mergeWeight(weightByAge.get(age), wt, sampleSize)
+            );
         }
-
-        const aliveByHouseAge = new Map<string, number>();
+        const aliveByHouseAge = new Map<string, Map<number, number>>();
         const aliveByHouse = new Map<string, number>();
         const aliveByAge = new Map<number, number>();
 
         for (const [houseId, initial] of initialBirdsPerHouse.entries()) {
             let alive = initial;
 
+            const houseMortality = mortalityByHouseAge.get(houseId);
+
             for (let age = 1; age <= batchAge; age++) {
-                const key = `${houseId}:${age}`;
-                const mortalityToday = mortalityByHouseAge.get(key) ?? 0;
+                const mortalityToday = houseMortality?.get(age) ?? 0;
 
                 if (mortalityToday > alive) {
-                    throw new Error(`Mortality exceeds alive birds`);
+                    throw new Error("Mortality exceeds alive birds");
                 }
 
                 alive -= mortalityToday;
 
-                // alive per house per age
-                aliveByHouseAge.set(key, alive);
+                // store alive per house per age
+                let houseAliveMap = aliveByHouseAge.get(houseId);
+
+                if (!houseAliveMap) {
+                    houseAliveMap = new Map();
+                    aliveByHouseAge.set(houseId, houseAliveMap);
+                }
+
+                houseAliveMap.set(age, alive);
 
                 // total alive across houses per age
                 aliveByAge.set(age, (aliveByAge.get(age) ?? 0) + alive);
             }
 
-            // final/current alive per house
+            // final alive birds in this house
             aliveByHouse.set(houseId, alive);
         }
         const weeks = new Set([
@@ -320,78 +286,99 @@ export async function GET(req: NextRequest) {
         }
 
         // data feeding
+        data.mortalityPerHouse = [];
 
-        data.mortalityPerHouse = Array.from(
-            mortalityByHouseAge,
-            ([key, mortality]) => {
-                const [houseId, age] = key
-                    .split(":")
-                    .map((val) => Number.parseInt(val, 10));
-                return { houseId, day: age, mortality };
+        for (const [houseId, ageMap] of mortalityByHouseAge) {
+            for (const [age, mortality] of ageMap) {
+                data.mortalityPerHouse.push({
+                    houseId,
+                    day: age,
+                    mortality,
+                });
             }
-        );
-        data.feedPerHouse = Array.from(feedByHouseAge, ([key, feed]) => {
-            const [houseId, age] = key
-                .split(":")
-                .map((val) => Number.parseInt(val, 10));
-            return { houseId, age, feed };
-        });
-        data.waterPerHouse = Array.from(waterByHouseAge, ([key, water]) => {
-            const [houseId, age] = key
-                .split(":")
-                .map((val) => Number.parseInt(val, 10));
-            return { houseId, age, water };
-        });
-        data.bodyWeightPerHouse = Array.from(
-            weightByHouseAge,
-            ([key, data]) => {
-                const [houseId, age] = key
-                    .split(":")
-                    .map((val) => Number.parseInt(val, 10));
-                return {
+        }
+        data.feedPerHouse = [];
+
+        for (const [houseId, ageMap] of feedByHouseAge) {
+            for (const [age, feed] of ageMap) {
+                data.feedPerHouse.push({
                     houseId,
                     age,
-                    sampleSize: data.sampleSize,
-                    avgWeight: data.avgWeight,
-                    week: Math.ceil(age),
-                };
+                    feed,
+                });
             }
-        );
+        }
+        data.waterPerHouse = [];
+
+        for (const [houseId, ageMap] of waterByHouseAge) {
+            for (const [age, water] of ageMap) {
+                data.waterPerHouse.push({
+                    houseId,
+                    age,
+                    water,
+                });
+            }
+        }
+        data.bodyWeightPerHouse = [];
+
+        for (const [houseId, ageMap] of weightByHouseAge) {
+            for (const [age, weight] of ageMap) {
+                data.bodyWeightPerHouse.push({
+                    houseId,
+                    age,
+                    sampleSize: weight.sampleSize,
+                    avgWeight: weight.avgWeight,
+                    week: Math.ceil(age / 7),
+                });
+            }
+        }
 
         // data.aliveBirdsPerHouse =
 
         // Genaral Data
-        const ages = new Set([...feedByAge.keys(), ...waterByAge.keys()]);
+        const ages = new Set([
+            ...feedByAge.keys(),
+            ...waterByAge.keys(),
+        ]);
 
-        const genaralFeedAndWater: {
-            age: number;
-            feed: number;
-            water: number;
-        }[] = Array.from(ages).map((age) => ({
-            age,
-            feed: feedByAge.get(age) ?? 0,
-            water: waterByAge.get(age) ?? 0,
-        }));
-        data.genaralFeedAndWater = genaralFeedAndWater;
-        data.genaralFeed = Array.from(feedByAge, ([age, feed]) => ({
-            age,
-            feed,
-        }));
-        data.genaralBodyWeight = Array.from(weightByAge, ([age, data]) => ({
-            age,
-            week: Math.ceil(age / 7),
-            sampleSize: data.sampleSize,
-            avgWeight: data.avgWeight,
-        }));
-        data.genaralMortality = Array.from(
-            mortalityByAge,
-            ([age, mortality]) => ({ day: age, mortality })
-        );
+        data.genaralFeedAndWater = [];
 
-        data.genaralWater = Array.from(waterByAge, ([age, water]) => ({
-            age,
-            water,
-        }));
+        for (const age of ages) {
+            data.genaralFeedAndWater.push({
+                age,
+                feed: feedByAge.get(age) ?? 0,
+                water: waterByAge.get(age) ?? 0,
+            });
+        }
+        data.genaralFeed = [];
+
+        for (const [age, feed] of feedByAge) {
+            data.genaralFeed.push({ age, feed });
+        }
+        data.genaralBodyWeight = [];
+
+        for (const [age, weight] of weightByAge) {
+            data.genaralBodyWeight.push({
+                age,
+                week: Math.ceil(age / 7),
+                sampleSize: weight.sampleSize,
+                avgWeight: weight.avgWeight,
+            });
+        }
+        data.genaralMortality = [];
+
+        for (const [age, mortality] of mortalityByAge) {
+            data.genaralMortality.push({
+                day: age,
+                mortality,
+            });
+        }
+
+        data.genaralWater = [];
+
+        for (const [age, water] of waterByAge) {
+            data.genaralWater.push({ age, water });
+        }
 
         data.genralAliveBirds = getGenaralAliveBirds(
             batch.initial_quantity,
@@ -399,27 +386,33 @@ export async function GET(req: NextRequest) {
             mortalityByAge
         );
 
-        data.totalMortalityGenaral = mortalityByAge
-            .entries()
-            .reduce((acc, val) => (acc += val[1]), 0);
-        data.totalFeedGenaral = feedByAge
-            .entries()
-            .reduce((acc, val) => (acc += val[1]), 0);
+        let totalMortality = 0;
+        for (const v of mortalityByAge.values()) {
+            totalMortality += v;
+        }
+        data.totalMortalityGenaral = totalMortality;
+
+        let totalFeed = 0;
+        for (const v of feedByAge.values()) {
+            totalFeed += v;
+        }
+        data.totalFeedGenaral = totalFeed;
+
         data.totalAliveBirdsGenaral =
-            aliveByAge.get(getBatchAgeInDays(batch.starting_date)) ?? 0;
+            aliveByAge.get(batchAge) ?? 0
 
         data.mortalityRateGenaral =
             (data.totalMortalityGenaral / batch.initial_quantity) * 100;
-        data.mortalityToday = mortalityByAge.get(batchAge) ?? 0;
-        let latestAvgBodyWeight: number = 0;
-        if (weightByAge.size > 0) {
-            let maxAge = -Infinity;
 
-            for (const [age, data] of weightByAge.entries()) {
-                if (age > maxAge) {
-                    maxAge = age;
-                    latestAvgBodyWeight = data.avgWeight;
-                }
+        data.mortalityToday = mortalityByAge.get(batchAge) ?? 0;
+
+        let latestAvgBodyWeight = 0;
+        let latestAge = -1;
+
+        for (const [age, weight] of weightByAge) {
+            if (age > latestAge) {
+                latestAge = age;
+                latestAvgBodyWeight = weight.avgWeight;
             }
         }
 
@@ -427,23 +420,26 @@ export async function GET(req: NextRequest) {
 
         const currentBirdsBodyWeight =
             data.totalAliveBirdsGenaral * (data.avgBodyWeightLatest / 1000);
+
         const currentBirdsInitialBodyWeight =
             data.totalAliveBirdsGenaral * (batch.init_chicks_avg_wt / 1000);
 
         const netWeight =
             currentBirdsBodyWeight - currentBirdsInitialBodyWeight - weightLost;
-        const fcr = netWeight > 0 ? data.totalFeedGenaral / netWeight : 0;
 
-        data.genaralFcr = fcr;
+        data.genaralFcr = netWeight > 0
+            ? data.totalFeedGenaral / netWeight
+            : 0;
 
-        const growthRate =
-            (data.avgBodyWeightLatest - (weightByWeek.get(2)?.avgWeight ?? 0)) /
-            7;
+        // const growthRate =
+        //     (data.avgBodyWeightLatest - (weightByWeek.get(2)?.avgWeight ?? 0)) /
+        //     7;
 
-        console.log(growthRate);
-        console.log();
 
-        // console.log(mortalityByHouseWeek);
+
+        // console.log(growthRate);
+
+        // console.log(mortalityByWeek);
         // console.log(mortalityByHouseAge);
         // console.log(mortalityByHouseSum);
         // console.log(mortalityByAge);
@@ -465,7 +461,7 @@ export async function GET(req: NextRequest) {
         // console.log(weeksArray);
         // console.log(weightLost);
         // console.log(weightByWeek);
-        console.log(data)
+        // console.log(data)
         return response({
             message: "Batch profile fetched successfully",
             data,
@@ -573,4 +569,46 @@ export function calculateADG(prev: number, curr: number): number {
     }
 
     return (curr - prev) / days;
+}
+
+
+function addToMap<K>(map: Map<K, number>, key: K, value: number) {
+    map.set(key, (map.get(key) ?? 0) + value);
+}
+
+function addNested<K1, K2>(
+    map: Map<K1, Map<K2, number>>,
+    key1: K1,
+    key2: K2,
+    value: number
+) {
+    let inner = map.get(key1);
+
+    if (!inner) {
+        inner = new Map();
+        map.set(key1, inner);
+    }
+
+    inner.set(key2, (inner.get(key2) ?? 0) + value);
+}
+
+function mergeWeight(
+    prev: WeightData | undefined,
+    avgWeight: number,
+    sampleSize: number
+): WeightData {
+    if (!prev) {
+        return { avgWeight, sampleSize };
+    }
+
+    const totalWeight =
+        prev.avgWeight * prev.sampleSize +
+        avgWeight * sampleSize;
+
+    const totalSize = prev.sampleSize + sampleSize;
+
+    return {
+        avgWeight: totalWeight / totalSize,
+        sampleSize: totalSize,
+    };
 }

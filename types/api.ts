@@ -92,24 +92,24 @@ export type BatchProfileData = {
     }[];
     mortalityPerHouse: {
         day: number;
-        houseId: number;
+        houseId: string;
         mortality: number;
     }[];
 
     feedPerHouse: {
         age: number;
         feed: number;
-        houseId: number;
+        houseId: string;
     }[];
     waterPerHouse: {
         age: number;
         water: number;
-        houseId: number;
+        houseId: string;
     }[];
 
     bodyWeightPerHouse: {
         week: number;
-        houseId: number;
+        houseId: string;
         avgWeight: number; // grams
         sampleSize: number;
         age: number;
