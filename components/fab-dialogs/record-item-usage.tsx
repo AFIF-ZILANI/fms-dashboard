@@ -230,30 +230,26 @@ export function RecordItemUsage() {
                                                                     }
                                                                 >
                                                                     <span className="font-semibold">
-                                                                        {
-                                                                            item.name
-                                                                        }
-                                                                    </span>{" "}
-                                                                    -
-                                                                    <span>
-                                                                        {TooltipCreator(
-                                                                            {
-                                                                                text:
-                                                                                    item.company ??
-                                                                                    "Unknown Company",
-                                                                                size: 24,
+                                                                        <TooltipCreator
+                                                                            text={
+                                                                                item.name
                                                                             }
-                                                                        )}
-                                                                    </span>{" "}
-                                                                    -
-                                                                    <Badge
-                                                                        variant="outline"
-                                                                        className="ml-2"
-                                                                    >
-                                                                        {
-                                                                            item.category
-                                                                        }
-                                                                    </Badge>
+                                                                            size={
+                                                                                18
+                                                                            }
+                                                                        />
+                                                                    </span>
+                                                                    <span>
+                                                                        <TooltipCreator
+                                                                            text={
+                                                                                item.company ??
+                                                                                "Unknown Company"
+                                                                            }
+                                                                            size={
+                                                                                16
+                                                                            }
+                                                                        />
+                                                                    </span>
                                                                 </SelectItem>
                                                             )
                                                         )}

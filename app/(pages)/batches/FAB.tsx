@@ -5,7 +5,6 @@ import { useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
 import { Plus } from "lucide-react";
 import { AddWeightRecordDialog } from "@/components/fab-dialogs/add-weight-dialog";
-import { AddHouseDialog } from "@/components/fab-dialogs/add-house-dialog";
 import { AddEventDialog } from "@/components/fab-dialogs/add-event-dialog";
 import { AddBatchDialog } from "@/components/fab-dialogs/add-batch-dialog";
 import { AddBatchAllocationDialog } from "@/components/fab-dialogs/add-batch-allocation.dialog";
@@ -65,7 +64,6 @@ export default function FAB() {
                     <AddEventDialog />
                     <AddBatchAllocationDialog />
                     <AddWeightRecordDialog />
-                    <AddHouseDialog />
                 </div>
             </div>
 

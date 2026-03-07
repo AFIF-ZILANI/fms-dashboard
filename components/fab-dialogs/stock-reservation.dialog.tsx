@@ -213,7 +213,7 @@ export function StockReservationDialog() {
                                                         )
                                                     }
                                                 >
-                                                    <SelectTrigger className="w-full">
+                                                    <SelectTrigger className="w-full h-12 px-4">
                                                         <SelectValue placeholder="Select item" />
                                                     </SelectTrigger>
                                                     <SelectContent>
@@ -228,30 +228,26 @@ export function StockReservationDialog() {
                                                                     }
                                                                 >
                                                                     <span className="font-semibold">
-                                                                        {
-                                                                            item.name
-                                                                        }
-                                                                    </span>{" "}
-                                                                    -
-                                                                    <span>
-                                                                        {TooltipCreator(
-                                                                            {
-                                                                                text:
-                                                                                    item.company ??
-                                                                                    "Unknown Company",
-                                                                                size: 24,
+                                                                        <TooltipCreator
+                                                                            text={
+                                                                                item.name
                                                                             }
-                                                                        )}
-                                                                    </span>{" "}
-                                                                    -
-                                                                    <Badge
-                                                                        variant="outline"
-                                                                        className="ml-2"
-                                                                    >
-                                                                        {
-                                                                            item.category
-                                                                        }
-                                                                    </Badge>
+                                                                            size={
+                                                                                18
+                                                                            }
+                                                                        />
+                                                                    </span>
+                                                                    <span className="text-xs">
+                                                                        <TooltipCreator
+                                                                            text={
+                                                                                item.company ??
+                                                                                "Unknown Company"
+                                                                            }
+                                                                            size={
+                                                                                16
+                                                                            }
+                                                                        />
+                                                                    </span>
                                                                 </SelectItem>
                                                             )
                                                         )}
@@ -453,9 +449,7 @@ export function StockReservationDialog() {
                             >
                                 {submitIsPending ? <Spinner /> : <Save />}
 
-                                {submitIsPending
-                                    ? "Recording"
-                                    : "Record Allocation"}
+                                {submitIsPending ? "Allocating..." : "Allocate"}
                             </Button>
                         </DialogFooter>
                     </form>
